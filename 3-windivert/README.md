@@ -23,6 +23,8 @@ windivert::divert::blocking::_<>::recv(&local_118,&local_128,local_78,0xffff);
 
 ### 4. **Sending Data Through MPSC Channels**
 
+After analysis, it's using the **List flavor** of the MPSC channel.
+
 ```
 std::sync::mpmc::array::Channel<T>::send(&local_118,plVar1,(longlong *)&local_68,uVar2,1000000000);
 std::sync::mpmc::list::Channel<T>::send(&local_118,(longlong)plVar1,&local_68);

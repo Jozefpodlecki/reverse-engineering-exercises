@@ -37,6 +37,22 @@ OS Configuration:              Standalone Workstation
 OS Build Type:                 Multiprocessor Free
 ```
 
+### 4. Building the Project
+
+To build exercise, use the following Cargo commands:
+
+debug mode
+
+```
+cargo build
+```
+
+release mode (optimizations enabled)
+
+```
+cargo build --release
+```
+
 ### Miscellaneous Resources
 
 - [Ghidra Cheat Sheet: A helpful reference for using Ghidra in reverse engineering tasks.](https://ghidra-sre.org/CheatSheet.html)
