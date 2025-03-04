@@ -1,0 +1,12 @@
+[package]
+name = "windivert"
+version = "0.1.0"
+authors = ["Jozef Podlecki"]
+edition = "2018"
+rust-version = "1.84"
+
+[dependencies]
+tokio = { version = "1.41.0", features = ["rt", "rt-multi-thread", "signal", "time", "sync", "macros"] }
+windivert = "0.6.0"
+anyhow = "1.0.96"
+log = "0.4"
