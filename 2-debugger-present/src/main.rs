@@ -11,6 +11,9 @@ fn main() {
         println!("Debugger is present!");
     } else {
         println!("No debugger detected.");
+        // format_args_nl!("test");
+        let test = format_args!("a");
+        io::_print(test);
     }
 
     let mut input = String::new();

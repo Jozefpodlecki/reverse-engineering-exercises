@@ -1,0 +1,19 @@
+name: Publish docs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update_docs:
+    name: Publish docs
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-mdbook@v1
+      - run: |
+          cd docs
+          mdbook build
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/book 

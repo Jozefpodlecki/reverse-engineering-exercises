@@ -1,0 +1,6 @@
+[book]
+authors = ["Jozef Podlecki"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Reverse Engineering Exercises"
