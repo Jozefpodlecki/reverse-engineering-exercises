@@ -7,7 +7,55 @@ cd 0-empty
 rustc -C opt-level=3 -C debuginfo=0 -o main-o3.exe main.rs
 ```
 
-The PE entry point, when decompiled in Ghidra, appears as:
+Entry point of a PE executable:
+
+```sh
+(objdump -x main-o3.exe) | Select-Object -First 25
+
+main-o3.exe:     file format pei-x86-64
+main-o3.exe
+architecture: i386:x86-64, flags 0x0000012f:
+HAS_RELOC, EXEC_P, HAS_LINENO, HAS_DEBUG, HAS_LOCALS, D_PAGED
+start address 0x0000000140014280
+
+Characteristics 0x22
+        executable
+        large address aware
+
+Time/Date               Tue Aug 19 22:58:47 2025
+Magic                   020b    (PE32+)
+MajorLinkerVersion      14
+MinorLinkerVersion      44
+SizeOfCode              0000000000014e00
+SizeOfInitializedData   0000000000008c00
+SizeOfUninitializedData 0000000000000000
+AddressOfEntryPoint     0000000000014280
+BaseOfCode              0000000000001000
+ImageBase               0000000140000000
+SectionAlignment        00001000
+FileAlignment           00000200
+MajorOSystemVersion     6
+MinorOSystemVersion     0
+```
+
+Examine the first few instructions executed.
+
+```sh
+objdump -D main-o3.exe --start-address=0x140014280 --stop-address=0x140014290
+
+main-o3.exe:     file format pei-x86-64
+
+
+Disassembly of section .text:
+
+0000000140014280 <.text+0x13280>:
+   140014280:   48 83 ec 28             sub    $0x28,%rsp
+   140014284:   e8 e3 02 00 00          call   0x14001456c
+   140014289:   48 83 c4 28             add    $0x28,%rsp
+   14001428d:   e9 72 fe ff ff          jmp    0x140014104
+```
+
+When decompiled in Ghidra, it appears as:
 
 ```c
 ulong __cdecl mainCRTStartup(void *param_1)
@@ -22,7 +70,9 @@ ulong __cdecl mainCRTStartup(void *param_1)
 
 ```
 
-`__security_init_cookie`
+`__security_init_cookie` initializes the compiler's stack buffer overflow protection cookie by generating a pseudo-random value using the system time, thread ID, process ID, and performance counter; it ensures the cookie is never the default sentinel value and stores both the cookie and its complement for use in stack security checks.
+
+[source](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/security-init-cookie?view=msvc-170)
 
 ```c
 void __cdecl __security_init_cookie(void)
@@ -57,7 +107,12 @@ void __cdecl __security_init_cookie(void)
 
 ```
 
-`__scrt_common_main_seh`
+`__scrt_common_main_seh` initializes the C runtime, acquires a startup lock to ensure thread-safe setup, runs global constructors via `_initterm_e` and `_initterm`, executes dynamic TLS init and destructor callbacks if present, retrieves `argc`, `argv`, and the environment, calls `main()` with these values, and then performs CRT and OS cleanup by calling `_cexit()` or `exit()` depending on whether the application is managed.
+
+`__scrt_fastfail` triggers an immediate program termination using a **low-level fast-fail mechanism**. It checks for CPU support for the `fast fail` instruction, optionally invokes the debugger hook, captures the CPU context, performs stack unwinding if possible, and invokes `UnhandledExceptionFilter`. If no debugger handles the exception, it ensures the process terminates without normal cleanup, signaling a critical unrecoverable error.
+
+`__scrt_initialize_crt` sets up CRT state for the module, marks DLL initialization if needed, detects CPU features via `__isa_available_init`, and determines whether the runtime environment should be initialized.
+
 
 ```c
 int __cdecl __scrt_common_main_seh(void)
@@ -125,6 +180,9 @@ int __cdecl __scrt_common_main_seh(void)
 
 ```
 
+[lang_start_internal](https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L173)
+[init](https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L111)
+
 ```c
 int __cdecl main(int _Argc,char **_Argv,char **_Env)
 {
@@ -136,67 +194,6 @@ int __cdecl main(int _Argc,char **_Argv,char **_Env)
 
 ```
 
-### Prologue / Stack Setup
-
-- Saves registers (RBX, RSI, RDI) to stack.
-- Allocates stack space for local variables.
-
-### CRT Initialization
-
-- Calls `__scrt_initialize_crt` to set up the CRT.
-- If initialization fails, jumps to fastfail.
-
-### Startup Lock
-
-- Calls `__scrt_acquire_startup_lock` to ensure only one thread initializes CRT globally.
-- Sets/updates startup state (`__scrt_current_native_startup_state`).
-
-### Global and C++ Constructors
-
-- `_initterm_e` → initializes constructors that can throw exceptions.
-- `_initterm` → initializes constructors that cannot throw exceptions.
-
-### Release Startup Lock
-
-- Calls `__scrt_release_startup_lock` to allow other threads to proceed.
-
-### Thread-Local Storage (TLS) Setup
-
-- Calls `__scrt_get_dyn_tls_init_callback` and `_register_thread_local_exe_atexit_callback` to set up TLS initializers and destructors.
-
-### Environment / Arguments Setup
-
-- `_get_initial_narrow_environment` → fetches environment variables.
-- `__p___argv` and `__p___argc` → get command-line arguments.
-
-### Call User main()
-
-- Sets up arguments (`argc`, `argv`, environment) and calls `main`.
-- Stores `main`’s return value in EBX.
-
-### CRT Cleanup / Exit
-
-- Checks if the application is managed (.NET) or native.
-- Calls `_cexit` or `_c_exit` to finalize CRT.
-- Calls `__scrt_uninitialize_crt` to clean up runtime resources.
-
-### Return
-
-- Restores saved registers.
-- Returns the `main()` return value in EAX.
-
-### Failure Paths
-
-- Calls `__scrt_fastfail` if CRT initialization fails or startup state is invalid.
-
----
-
 ## Summary
 
-The PE entry → `mainCRTStartup` → `__scrt_common_main_seh` → `main()` chain handles runtime initialization, CRT setup, and exception handling before executing the user-defined `main()`.
-
-
-**Summary:**  
-
-The PE entry → mainCRTStartup → __scrt_common_main_seh → Rust main() chain handles runtime initialization, CRT setup, and exception handling before executing the user-defined main().
-
+The PE entry -> `mainCRTStartup` -> `__scrt_common_main_seh` -> `lang_start_internal` -> `main()` chain handles runtime initialization, CRT setup, and exception handling before executing the user-defined `main()`.

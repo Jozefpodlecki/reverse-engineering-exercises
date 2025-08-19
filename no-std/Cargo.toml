@@ -1,0 +1,14 @@
+[package]
+name = "no-std"
+version = "0.0.1"
+authors = ["Jozef Podlecki"]
+edition = "2018"
+rust-version = "1.88"
+
+[dependencies]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
