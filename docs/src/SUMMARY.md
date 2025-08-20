@@ -1,5 +1,6 @@
 - [Introduction](introduction.md)
     - [Environment](environment.md)
+    - [Tools](tools.md)
 - [Exercises](exercises.md)
     - [0-empty](./exercises/0-empty.md)
     - [1-no-std](./exercises/1-no-std.md)

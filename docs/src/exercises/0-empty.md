@@ -7,35 +7,20 @@ cd 0-empty
 rustc -C opt-level=3 -C debuginfo=0 -o main-o3.exe main.rs
 ```
 
+The binary under study is built from the source in this repository, which consists of nothing more than an empty Rust main function. 
+
+Despite the trivial source, the resulting executable still pulls in Rust’s standard runtime and the Windows CRT. This means the file contains initialization code, runtime setup, and exit handling beyond what the high-level program expresses.
+
+In the following sections we’ll explore how the binary is structured, which subsystems it links against, and how control flows from the Windows loader into Rust’s runtime before eventually returning to the operating system.
+
 Entry point of a PE executable:
 
 ```sh
-(objdump -x main-o3.exe) | Select-Object -First 25
-
-main-o3.exe:     file format pei-x86-64
-main-o3.exe
-architecture: i386:x86-64, flags 0x0000012f:
-HAS_RELOC, EXEC_P, HAS_LINENO, HAS_DEBUG, HAS_LOCALS, D_PAGED
-start address 0x0000000140014280
-
-Characteristics 0x22
-        executable
-        large address aware
-
-Time/Date               Tue Aug 19 22:58:47 2025
-Magic                   020b    (PE32+)
-MajorLinkerVersion      14
-MinorLinkerVersion      44
-SizeOfCode              0000000000014e00
-SizeOfInitializedData   0000000000008c00
-SizeOfUninitializedData 0000000000000000
-AddressOfEntryPoint     0000000000014280
-BaseOfCode              0000000000001000
-ImageBase               0000000140000000
-SectionAlignment        00001000
-FileAlignment           00000200
-MajorOSystemVersion     6
-MinorOSystemVersion     0
+peanalyse -i main.exe --entry
+Architecture: Pe64
+AddressOfEntryPoint (RVA): 0x00014280
+ImageBase:                0x140000000
+EntryPoint (VA):          0x140014280
 ```
 
 Examine the first few instructions executed.
@@ -70,7 +55,7 @@ ulong __cdecl mainCRTStartup(void *param_1)
 
 ```
 
-`__security_init_cookie` initializes the compiler's stack buffer overflow protection cookie by generating a pseudo-random value using the system time, thread ID, process ID, and performance counter; it ensures the cookie is never the default sentinel value and stores both the cookie and its complement for use in stack security checks.
+First, `__security_init_cookie` initializes the compiler's stack buffer overflow protection cookie by generating a pseudo-random value using the system time, thread ID, process ID, and performance counter; it ensures the cookie is never the default sentinel value and stores both the cookie and its complement for use in stack security checks.
 
 [source](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/security-init-cookie?view=msvc-170)
 

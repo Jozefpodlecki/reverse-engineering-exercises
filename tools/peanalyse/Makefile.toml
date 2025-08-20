@@ -1,0 +1,18 @@
+[tasks.build-release]
+description = "Build the project in release mode and copy the binary"
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.release]
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+'''
+$source = ".\\target\\release\\peanalyse.exe"
+$destination = "C:\\bin\\peanalyse.exe"
+
+Write-Host "Copying binary from $source to $destination"
+Copy-Item -Path $source -Destination $destination -Force
+'''
+]
+dependencies = ["build-release"]
