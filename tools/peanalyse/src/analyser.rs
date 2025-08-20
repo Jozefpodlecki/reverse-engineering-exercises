@@ -3,18 +3,7 @@ use anyhow::Result;
 use capstone::{arch::{self, x86::X86Insn, BuildsCapstone, BuildsCapstoneSyntax}, Capstone};
 use pelite::{pe::Pe, PeFile, Wrap};
 
-use crate::pe_info::{PEInfo, PEKind};
-
-pub fn build_capstone() -> Result<Capstone> {
-    let mut cs = Capstone::new()
-        .x86()
-        .mode(arch::x86::ArchMode::Mode64)
-        .syntax(arch::x86::ArchSyntax::Intel)
-        .build()?;
-    cs.set_skipdata(true)?;
-    cs.set_detail(true)?;
-    Ok(cs)
-}
+use crate::{pe_info::{PEInfo, PEKind}, utils::{build_capstone, print_imports}};
 
 pub struct Analyser(PathBuf);
 
@@ -26,47 +15,7 @@ impl Analyser {
     pub fn iat_entries(&self) -> Result<()> {
         let data = fs::read(&self.0)?;
         let file = PeFile::from_bytes(&data)?;
-
-        match file {
-            Wrap::T32(pe) => {
-                let imports = pelite::pe32::Pe::imports(pe)?;
-                
-                for desc in imports.iter() {
-                    println!("DLL: {}", desc.dll_name()?);
-
-                    let iat = desc.iat()?;
-                    let int = desc.int()?;
-
-                    for (va, import) in iat.zip(int) {
-                        match import? {
-                            pelite::pe::imports::Import::ByName { hint, name } 
-                                => println!("  {} @ VA 0x{:08X} (hint {})", name.to_str()?, va, hint),
-                            pelite::pe::imports::Import::ByOrdinal { ord }
-                                => println!("  Ordinal {} @ VA 0x{:08X}", ord, va),
-                        }
-                    }
-                }
-            }
-            Wrap::T64(pe) => {
-                let imports = pelite::pe64::PeFile::imports(pe)?;
-                
-                for desc in imports.iter() {
-                    println!("DLL: {}", desc.dll_name()?);
-
-                    let iat = desc.iat()?;
-                    let int = desc.int()?;
-
-                    for (va, import) in iat.zip(int) {
-                        match import? {
-                            pelite::pe::imports::Import::ByName { hint, name } 
-                                => println!("  {} @ VA 0x{:08X} (hint {})", name.to_str()?, va, hint),
-                            pelite::pe::imports::Import::ByOrdinal { ord }
-                                => println!("  Ordinal {} @ VA 0x{:08X}", ord, va),
-                        }
-                    }
-                }
-            }
-        }
+        print_imports(file)?;
 
         Ok(())
     }
