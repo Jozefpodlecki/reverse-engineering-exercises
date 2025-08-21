@@ -58,6 +58,60 @@ impl Analyser {
         Ok(())
     }
 
+    pub fn disassemble_text(&self) -> Result<()> {
+        let cs = build_capstone()?;
+        let data = std::fs::read(&self.0)?;
+        let file = PeFile::from_bytes(&data)?;
+
+        // Get PE info and image base
+        let (info, wrap) = match file {
+            Wrap::T32(pe) => (PEInfo::from_pe32(pe)?, Wrap::T32(pe)),
+            Wrap::T64(pe) => (PEInfo::from_pe64(pe)?, Wrap::T64(pe)),
+        };
+
+        // Find the .text section
+        let text_section = match wrap {
+            Wrap::T32(pe) => pelite::pe32::Pe::section_headers(pe).iter()
+                .find(|s| s.Name.starts_with(b".text"))
+                .ok_or_else(|| anyhow::anyhow!(".text section not found"))?,
+            Wrap::T64(pe) => pe.section_headers().iter()
+                .find(|s| s.Name.starts_with(b".text"))
+                .ok_or_else(|| anyhow::anyhow!(".text section not found"))?,
+        };
+
+        let section_start_rva = text_section.VirtualAddress;
+        let section_size = text_section.VirtualSize.max(text_section.SizeOfRawData);
+
+        let section_va = info.image_base + section_start_rva as u64;
+
+        let mut offset = 0u64;
+        while offset < section_size as u64 {
+            let va = section_va + offset;
+            let rva = va - info.image_base;
+
+            // Limit read to remaining section bytes (avoid reading past section)
+            let remaining = section_size as usize - offset as usize;
+            let read_len = remaining.min(15);
+
+            let bytes = file.derva_slice(rva as u32, read_len)?;
+
+            let insns = cs.disasm_all(bytes, va)?;
+
+            let insn = &insns[0];
+
+            println!(
+                "0x{:08X}: {:<10} {}",
+                insn.address(),
+                insn.mnemonic().unwrap_or(""),
+                insn.op_str().unwrap_or("")
+            );
+
+            offset += insn.bytes().len() as u64;
+        }
+
+        Ok(())
+    }
+
     pub fn disassemble_range(
         &self,
         start_va: u64,

@@ -13,6 +13,11 @@ fn main() -> Result<()> {
 
     let analyser = Analyser::new(args.input.into());
 
+    if args.disassemble_text {
+        analyser.disassemble_text()?;
+        return Ok(());
+    }
+
     if let Some(start_addr) = args.disassemble_from_addr {
 
         let mut stop_on_int3 = args.stop_on_int3;
