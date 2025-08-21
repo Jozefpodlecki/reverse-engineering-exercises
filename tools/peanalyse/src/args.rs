@@ -17,6 +17,13 @@ pub struct CliArgs {
     /// Shows iat entries
     #[arg(long)]
     pub iat_entries: bool,
+
+     /// Prints value at given addr
+    #[arg(
+        long,
+        value_parser = parse_hex_or_decimal
+    )]
+    pub read_addr: Option<u64>,
  
     /// Virtual address to start disassembly (hex 0x... or decimal)
     #[arg(

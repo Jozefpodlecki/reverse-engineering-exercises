@@ -28,6 +28,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Some(addr) = args.read_addr {
+        analyser.read_addr(addr, true)?;
+        return Ok(());
+    }
+
     if args.iat_entries {
         analyser.iat_entries()?;
         return Ok(());

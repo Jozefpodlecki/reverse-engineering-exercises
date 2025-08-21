@@ -1,5 +1,5 @@
 use anyhow::Result;
-use capstone::{arch::{self, x86::X86Insn, BuildsCapstone, BuildsCapstoneSyntax}, Capstone};
+use capstone::{arch::{self, x86::{X86Insn, X86Reg}, BuildsCapstone, BuildsCapstoneSyntax, DetailsArchInsn}, Capstone, Insn};
 use pelite::{pe::Pe, PeFile, Wrap};
 
 pub fn build_capstone() -> Result<Capstone> {
@@ -26,6 +26,7 @@ pub fn print_imports(file: PeFile<'_>) -> Result<()> {
                 let int = desc.int()?;
                 for (rva, import) in iat.zip(int) {
                     let va = image_base + *rva as u64;
+
                     match import? {
                         pelite::pe::imports::Import::ByName { hint, name } => {
                             println!("  {} @ RVA 0x{:08X} VA 0x{:08X} (hint {})", 
@@ -63,4 +64,26 @@ pub fn print_imports(file: PeFile<'_>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn get_relative_rip_target(cs: &Capstone, insn: &Insn) -> Option<u64> {
+    let detail = cs.insn_detail(insn).unwrap();
+    let arch_detail = detail.arch_detail();
+    let x86_detail = arch_detail.x86().unwrap();
+
+    for operand in x86_detail.operands() {
+        match operand.op_type {
+            capstone::arch::x86::X86OperandType::Mem(mem) => {
+                if mem.base().0 == X86Reg::X86_REG_RIP as u16 {
+                    let next_rip = insn.address() + insn.bytes().len() as u64;
+                    return Some((next_rip as i64 + mem.disp()) as u64);
+                }
+
+                return None
+            },
+            _ => continue,
+        }
+    }
+
+    None
 }
