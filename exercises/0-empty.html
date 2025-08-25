@@ -1,0 +1,384 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>0-empty - Reverse Engineering Exercises</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Reverse Engineering Exercises</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="0-empty"><a class="header" href="#0-empty">0-empty</a></h1>
+<p>Navigate to the project folder and compile with optimizations:</p>
+<pre><code class="language-sh">cd 0-empty
+rustc -C opt-level=3 -C debuginfo=0 -o main-o3.exe main.rs
+</code></pre>
+<p>The binary under study is built from the source in this repository, which consists of nothing more than an empty Rust main function.</p>
+<p>Despite the trivial source, the resulting executable still pulls in Rust’s standard runtime and the Windows CRT. This means the file contains initialization code, runtime setup, and exit handling beyond what the high-level program expresses.</p>
+<p>In the following sections we’ll explore how the binary is structured, which subsystems it links against, and how control flows from the Windows loader into Rust’s runtime before eventually returning to the operating system.</p>
+<p>Entry point of a PE executable:</p>
+<pre><code class="language-sh">peanalyse -i main.exe --entry
+Architecture: Pe64
+AddressOfEntryPoint (RVA): 0x00014280
+ImageBase:                0x140000000
+EntryPoint (VA):          0x140014280
+</code></pre>
+<p>Examine the first few instructions executed.</p>
+<pre><code class="language-sh">objdump -D main-o3.exe --start-address=0x140014280 --stop-address=0x140014290
+
+main-o3.exe:     file format pei-x86-64
+
+
+Disassembly of section .text:
+
+0000000140014280 &lt;.text+0x13280&gt;:
+   140014280:   48 83 ec 28             sub    $0x28,%rsp
+   140014284:   e8 e3 02 00 00          call   0x14001456c
+   140014289:   48 83 c4 28             add    $0x28,%rsp
+   14001428d:   e9 72 fe ff ff          jmp    0x140014104
+</code></pre>
+<p>When decompiled in Ghidra, it appears as:</p>
+<pre><code class="language-c">ulong __cdecl mainCRTStartup(void *param_1)
+
+{
+  ulong uVar1;
+  
+  __security_init_cookie();
+  uVar1 = __scrt_common_main_seh();
+  return uVar1;
+}
+
+</code></pre>
+<p>First, <code>__security_init_cookie</code> initializes the compiler's stack buffer overflow protection cookie by generating a pseudo-random value using the system time, thread ID, process ID, and performance counter; it ensures the cookie is never the default sentinel value and stores both the cookie and its complement for use in stack security checks.</p>
+<p><a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/security-init-cookie?view=msvc-170">source</a></p>
+<pre><code class="language-c">void __cdecl __security_init_cookie(void)
+
+{
+  DWORD DVar1;
+  _FILETIME local_res8;
+  LARGE_INTEGER local_res10;
+  _FILETIME local_18 [2];
+  
+  if (__security_cookie == 0x2b992ddfa232) {
+    local_res8.dwLowDateTime = 0;
+    local_res8.dwHighDateTime = 0;
+    GetSystemTimeAsFileTime(&amp;local_res8);
+    local_18[0] = local_res8;
+    DVar1 = GetCurrentThreadId();
+    local_18[0] = (_FILETIME)((ulonglong)local_18[0] ^ (ulonglong)DVar1);
+    DVar1 = GetCurrentProcessId();
+    local_18[0] = (_FILETIME)((ulonglong)local_18[0] ^ (ulonglong)DVar1);
+    QueryPerformanceCounter(&amp;local_res10);
+    __security_cookie =
+         ((ulonglong)local_res10.s.LowPart &lt;&lt; 0x20 ^
+          CONCAT44(local_res10.s.HighPart,local_res10.s.LowPart) ^ (ulonglong)local_18[0] ^
+         (ulonglong)local_18) &amp; 0xffffffffffff;
+    if (__security_cookie == 0x2b992ddfa232) {
+      __security_cookie = 0x2b992ddfa233;
+    }
+  }
+  __security_cookie_complement = ~__security_cookie;
+  return;
+}
+
+</code></pre>
+<p><code>__scrt_common_main_seh</code> initializes the C runtime, acquires a startup lock to ensure thread-safe setup, runs global constructors via <code>_initterm_e</code> and <code>_initterm</code>, executes dynamic TLS init and destructor callbacks if present, retrieves <code>argc</code>, <code>argv</code>, and the environment, calls <code>main()</code> with these values, and then performs CRT and OS cleanup by calling <code>_cexit()</code> or <code>exit()</code> depending on whether the application is managed.</p>
+<p><code>__scrt_fastfail</code> triggers an immediate program termination using a <strong>low-level fast-fail mechanism</strong>. It checks for CPU support for the <code>fast fail</code> instruction, optionally invokes the debugger hook, captures the CPU context, performs stack unwinding if possible, and invokes <code>UnhandledExceptionFilter</code>. If no debugger handles the exception, it ensures the process terminates without normal cleanup, signaling a critical unrecoverable error.</p>
+<p><code>__scrt_initialize_crt</code> sets up CRT state for the module, marks DLL initialization if needed, detects CPU features via <code>__isa_available_init</code>, and determines whether the runtime environment should be initialized.</p>
+<pre><code class="language-c">int __cdecl __scrt_common_main_seh(void)
+
+{
+  char **_Argv;
+  bool bVar1;
+  bool bVar2;
+  int iVar3;
+  _func___cdecl_void_void_ptr_ulong_void_ptr **pp_Var4;
+  char **_Env;
+  undefined8 *puVar5;
+  int *piVar6;
+  
+  bVar1 = __scrt_initialize_crt(exe);
+  if (!bVar1) {
+                    /* WARNING: Subroutine does not return */
+    __scrt_fastfail(7);
+  }
+  bVar1 = false;
+  bVar2 = __scrt_acquire_startup_lock();
+  if (__scrt_current_native_startup_state == initializing) {
+                    /* WARNING: Subroutine does not return */
+    __scrt_fastfail(7);
+  }
+  if (__scrt_current_native_startup_state == uninitialized) {
+    __scrt_current_native_startup_state = initializing;
+    iVar3 = _initterm_e(&amp;__xi_a,&amp;__xi_z);
+    if (iVar3 != 0) {
+      return 0xff;
+    }
+    _initterm(&amp;__xc_a,&amp;__xc_z);
+    __scrt_current_native_startup_state = initialized;
+  }
+  else {
+    bVar1 = true;
+  }
+  __scrt_release_startup_lock(bVar2);
+  pp_Var4 = __scrt_get_dyn_tls_init_callback();
+  if ((*pp_Var4 != (_func___cdecl_void_void_ptr_ulong_void_ptr *)0x0) &amp;&amp;
+     (bVar2 = __scrt_is_nonwritable_in_current_image(pp_Var4), bVar2)) {
+    _guard_dispatch_icall_nop();
+  }
+  pp_Var4 = __scrt_get_dyn_tls_dtor_callback();
+  if ((*pp_Var4 != (_func___cdecl_void_void_ptr_ulong_void_ptr *)0x0) &amp;&amp;
+     (bVar2 = __scrt_is_nonwritable_in_current_image(pp_Var4), bVar2)) {
+    _register_thread_local_exe_atexit_callback(*pp_Var4);
+  }
+  _Env = (char **)_get_initial_narrow_environment();
+  puVar5 = (undefined8 *)__p___argv();
+  _Argv = (char **)*puVar5;
+  piVar6 = (int *)__p___argc();
+  iVar3 = main(*piVar6,_Argv,_Env);
+  bVar2 = __scrt_is_managed_app();
+  if (bVar2) {
+    if (!bVar1) {
+      _cexit();
+    }
+    __scrt_uninitialize_crt(true,false);
+    return iVar3;
+  }
+
+  exit(iVar3);
+}
+
+</code></pre>
+<p><a href="https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L173">lang_start_internal</a>
+<a href="https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L111">init</a></p>
+<pre><code class="language-c">int __cdecl main(int _Argc,char **_Argv,char **_Env)
+{
+  int extraout_EAX;
+  
+  std::rt::lang_start_internal();
+  return extraout_EAX;
+}
+
+</code></pre>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>The PE entry -&gt; <code>mainCRTStartup</code> -&gt; <code>__scrt_common_main_seh</code> -&gt; <code>lang_start_internal</code> -&gt; <code>main()</code> chain handles runtime initialization, CRT setup, and exception handling before executing the user-defined <code>main()</code>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../exercises.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../exercises/1-no-std.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../exercises.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../exercises/1-no-std.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

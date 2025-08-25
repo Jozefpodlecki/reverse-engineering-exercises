@@ -1,0 +1,427 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>2-magic-string - Reverse Engineering Exercises</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Reverse Engineering Exercises</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <pre><code>peanalyse -i magic-string.exe --entry
+Architecture: Pe64
+AddressOfEntryPoint (RVA): 0x000177E0
+ImageBase:                0x140000000
+EntryPoint (VA):          0x1400177E0
+</code></pre>
+<h3 id="maincrtstartup-0x1400177e0"><a class="header" href="#maincrtstartup-0x1400177e0"><code>mainCRTStartup 0x1400177E0</code></a></h3>
+<pre><code class="language-x86asm">sub rsp,28
+call &lt;magic-string.__security_init_cookie&gt;
+add rsp,28
+jmp &lt;magic-string.__scrt_common_main_seh&gt; # 0x140017664
+</code></pre>
+<h3 id="__scrt_common_main_seh-0x140017664"><a class="header" href="#__scrt_common_main_seh-0x140017664"><code>__scrt_common_main_seh 0x140017664</code></a></h3>
+<pre><code class="language-x86asm">mov qword ptr ss:[rsp+8],rbx
+mov qword ptr ss:[rsp+10],rsi
+push rdi
+sub rsp,30
+mov ecx,1
+call &lt;magic-string.__scrt_initialize_crt&gt;
+test al,al
+...
+mov r8,rdi
+mov rdx,rbx
+mov ecx,dword ptr ds:[rax]
+call &lt;magic-string.main&gt; # 0x140001310
+...
+add rsp,30
+pop rdi
+ret 
+</code></pre>
+<p>Initializes CRT and calls main..<br/>
+Standard SEH (Structured Exception Handling) setup.</p>
+<h3 id="main-0x140001310"><a class="header" href="#main-0x140001310"><code>main 0x140001310</code></a></h3>
+<pre><code class="language-x86asm">sub rsp,38
+mov r9,rdx
+movsxd r8,ecx
+lea rax,qword ptr ds:[&lt;sub_7FF6AB8E1100&gt;] ; function pointer to Rust closure
+mov qword ptr ss:[rsp+30],rax
+mov byte ptr ss:[rsp+20],0
+lea rdx,qword ptr ds:[7FF6AB8FA3A0]
+lea rcx,qword ptr ss:[rsp+30]
+call &lt;magic-string.std::rt::lang_start_internal::h5830dd6b2696abe8&gt; # 0x140003080
+nop 
+add rsp,38
+ret 
+</code></pre>
+<p>Converts main to a trait object <code>(dyn Fn() -&gt; i32)</code>.<br/>
+Calls lang_start_internal with a fat pointer.</p>
+<h3 id="lang_start_internal-0x140003080"><a class="header" href="#lang_start_internal-0x140003080"><code>lang_start_internal 0x140003080</code></a></h3>
+<pre><code class="language-x86asm">push rbp
+push rsi
+push rdi
+sub rsp,A0
+lea rbp,qword ptr ss:[rsp+80]
+mov qword ptr ss:[rbp],FFFFFFFFFFFFFFFE
+mov rsi,rdx
+mov rdi,rcx
+...
+mov eax,dword ptr ds:[&lt;_tls_index&gt;]
+mov rdx,qword ptr gs:[58]
+mov rax,qword ptr ds:[rdx+rax*8]
+mov qword ptr ds:[rax+8],rcx
+mov qword ptr ds:[7FF6AB904220],rcx
+mov rcx,rdi
+call qword ptr ds:[rsi+28]
+...
+ret 
+</code></pre>
+<p>Implements Rust runtime startup and panic handling.<br/>
+Calls the main closure via vtable ([rsi+28]).</p>
+<h3 id="fat-pointer-dyn-fn---i32--sync"><a class="header" href="#fat-pointer-dyn-fn---i32--sync"><code>Fat pointer (dyn Fn() -&gt; i32 + Sync)</code></a></h3>
+<pre><code class="language-x86asm">sub rsp,28
+mov rcx,qword ptr ds:[rcx]
+call &lt;magic-string.sub_7FF6AB8E1020&gt; # 0x140001020
+xor eax,eax
+add rsp,28
+ret 
+</code></pre>
+<p>First stub: loads data pointer from fat pointer.</p>
+<h3 id="0x140001020"><a class="header" href="#0x140001020"><code>0x140001020</code></a></h3>
+<pre><code class="language-x86asm">sub rsp,28
+call rcx # 0x140001100
+nop 
+add rsp,28
+ret 
+</code></pre>
+<p>Second stub: trampoline calls the real <code>rust_main</code>.</p>
+<h3 id="rust_main"><a class="header" href="#rust_main"><code>rust_main</code></a></h3>
+<pre><code class="language-x86asm">push rbp
+sub rsp,80
+lea rbp,qword ptr ss:[rsp+80]
+mov qword ptr ss:[rbp-8],FFFFFFFFFFFFFFFE
+mov qword ptr ss:[rbp-28],0
+mov qword ptr ss:[rbp-20],1
+mov qword ptr ss:[rbp-18],0
+call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
+mov qword ptr ss:[rbp-10],rax
+lea rcx,qword ptr ss:[rbp-10]
+lea rdx,qword ptr ss:[rbp-28]
+call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
+test al,1
+jne magic-string.7FF6AB8E1219
+cmp qword ptr ss:[rbp-18],14
+jne magic-string.7FF6AB8E1181
+mov rax,qword ptr ss:[rbp-20]
+movdqu xmm0,xmmword ptr ds:[rax]
+movd xmm1,dword ptr ds:[rax+10]
+pcmpeqb xmm1,xmmword ptr ds:[&lt;__xmm@00000000000000000000000077626e41&gt;]
+pcmpeqb xmm0,xmmword ptr ds:[&lt;__xmm@233d7138577448503841673436394c75&gt;]
+pand xmm0,xmm1
+pmovmskb eax,xmm0
+cmp eax,FFFF
+je magic-string.7FF6AB8E11EA
+lea rax,qword ptr ds:[7FF6AB8FA460]
+mov qword ptr ss:[rbp-58],rax
+mov qword ptr ss:[rbp-50],1
+mov qword ptr ss:[rbp-48],8
+pxor xmm0,xmm0
+movdqu xmmword ptr ss:[rbp-40],xmm0
+lea rcx,qword ptr ss:[rbp-58]
+call &lt;magic-string.std::io::stdio::_print::h033ee6824b02a35e&gt;
+call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
+mov qword ptr ss:[rbp-10],rax
+lea rcx,qword ptr ss:[rbp-10]
+lea rdx,qword ptr ss:[rbp-28]
+call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
+test al,1
+jne magic-string.7FF6AB8E1247
+mov rdx,qword ptr ss:[rbp-28]
+test rdx,rdx
+je magic-string.7FF6AB8E11E0
+mov rcx,qword ptr ss:[rbp-20]
+mov r8d,1
+call &lt;magic-string.__rustc::__rust_dealloc&gt;
+nop 
+add rsp,80
+pop rbp
+ret 
+</code></pre>
+<h3 id="read-line"><a class="header" href="#read-line">Read Line</a></h3>
+<pre><code class="language-x86asm">lea rcx,qword ptr ss:[rbp-10]
+lea rdx,qword ptr ss:[rbp-28]
+call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
+test al,1
+jne magic-string.7FF6AB8E1219
+</code></pre>
+<ul>
+<li><code>read_line</code> writes the input directly into the stack-allocated buffer at <code>[rbp-28]</code></li>
+<li>The number of bytes read is stored at <code>[rbp-18]</code>.</li>
+</ul>
+<h3 id="input-length-check"><a class="header" href="#input-length-check">Input Length Check</a></h3>
+<pre><code class="language-x86asm">cmp qword ptr ss:[rbp-18],14
+jne magic-string.7FF6AB8E1181
+</code></pre>
+<ul>
+<li>rbp-18 stores the number of bytes read from stdin.</li>
+<li>Compares it against 0x14 (20 decimal).</li>
+<li>If input length ≠ 20 → jump to “Denied” handler.</li>
+</ul>
+<h3 id="string-comparison-simd"><a class="header" href="#string-comparison-simd">String Comparison (SIMD)</a></h3>
+<pre><code class="language-x86asm">mov rax,[rbp-20]       ; pointer to buffer
+movdqu xmm0,[rax]       ; first 16 bytes
+movd xmm1,[rax+16]      ; next 4 bytes
+pcmpeqb xmm1,[__xmm@000000…] ; compare bytes with constant1
+pcmpeqb xmm0,[__xmm@233d…]   ; compare bytes with constant2
+pand xmm0,xmm1
+pmovmskb eax,xmm0
+cmp eax,FFFF
+</code></pre>
+<p>Load input into XMM registers</p>
+<ul>
+<li>xmm0 = first 16 bytes of user input.</li>
+<li>xmm1 = next 4 bytes of user input (loaded with movd).</li>
+</ul>
+<p>Compare bytes against constants</p>
+<ul>
+<li>pcmpeqb xmm0, [pattern2] → sets each byte in xmm0 to 0xFF if equal, 0x00 if not.</li>
+<li>pcmpeqb xmm1, [pattern1] → same for xmm1.</li>
+</ul>
+<p>Combine results</p>
+<ul>
+<li>pand xmm0, xmm1 → bitwise AND of the results.</li>
+</ul>
+<p>Ensures all bytes must match across both chunks.</p>
+<p>Extract mask</p>
+<ul>
+<li>pmovmskb eax, xmm0 → extract the MSB of each byte into a 16-bit mask in eax.</li>
+</ul>
+<p>Check full match</p>
+<ul>
+<li>cmp eax, 0xFFFF → all 16 bytes in xmm0 matched.</li>
+</ul>
+<p>If not all match → jump to Denied handler.</p>
+<div class="table-wrapper"><table><thead><tr><th>Label</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>__xmm@000...77626e41</code></td><td><code>"uL964gA8PHtW8q=#"</code></td></tr>
+<tr><td><code>__xmm@233d...34639…</code></td><td><code>"Anbw"</code></td></tr>
+<tr><td>Full target string</td><td><code>"uL964gA8PHtW8q=#Anbw"</code></td></tr>
+</tbody></table>
+</div>
+<p>Resources</p>
+<ul>
+<li>https://binarydefense.com/resources/blog/digging-through-rust-to-find-gold-extracting-secrets-from-rust-malware/</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../exercises/1-no-std.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../exercises/1-no-std.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
