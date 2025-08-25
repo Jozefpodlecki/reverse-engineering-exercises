@@ -6,7 +6,14 @@ on:
 jobs:
   update_docs:
     name: Publish docs
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - uses: actions/checkout@v4
       - uses: peaceiris/actions-mdbook@v1
