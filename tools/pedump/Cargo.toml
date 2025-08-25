@@ -1,0 +1,40 @@
+[package]
+name = "pedump"
+version = "0.0.1"
+authors = ["Jozef Podlecki"]
+edition = "2024"
+rust-version = "1.88"
+
+[dependencies]
+anyhow = "1.0.96"
+log = "0.4.18"
+pelite = "0.10.0"
+capstone = "0.13"
+clap = { version = "4.5.31", features = ["derive"] }
+minidump = "0.26.0"
+flexi_logger = { version = "0.30.2", default-features = false }
+
+[dependencies.windows]
+version = "0.61.3"
+features = [
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_WindowsProgramming",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Memory",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Diagnostics",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Kernel",
+    "Win32_UI_Shell"
+]
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1

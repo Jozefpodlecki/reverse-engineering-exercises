@@ -18,6 +18,10 @@ pub struct CliArgs {
     #[arg(long)]
     pub disassemble_text: bool,
 
+    /// 
+    #[arg(long)]
+    pub relocations: bool,
+
     /// Shows iat entries
     #[arg(long)]
     pub iat_entries: bool,

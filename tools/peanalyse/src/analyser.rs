@@ -58,6 +58,24 @@ impl Analyser {
         Ok(())
     }
 
+    pub fn relocations(&self) -> Result<()> {
+        let data = std::fs::read(&self.0)?;
+        let file = PeFile::from_bytes(&data)?;
+        let relocs = match file.base_relocs() {
+            Ok(relocs) => relocs,
+            Err(err) => {
+                println!("{}", err);
+                return Ok(())
+            },
+        };
+
+        for reloc in relocs.iter_blocks() {
+            println!("{:?}", reloc);
+        }
+
+        Ok(())
+    }
+
     pub fn disassemble_text(&self) -> Result<()> {
         let cs = build_capstone()?;
         let data = std::fs::read(&self.0)?;

@@ -4,6 +4,7 @@
 		"exercises/no-std/Cargo.toml",
         "exercises/1-magic-string/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
+		"tools/pedump/Cargo.toml",
 	],
 	"files.exclude": {
 	},

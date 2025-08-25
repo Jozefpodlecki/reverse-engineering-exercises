@@ -9,6 +9,7 @@ use windows_sys::Win32::System::Console::GetStdHandle;
 use windows_sys::Win32::System::Console::WriteConsoleA;
 use windows_sys::Win32::System::Console::STD_OUTPUT_HANDLE;
 use windows_sys::Win32::System::Threading::ExitProcess;
+use windows_sys::Win32::System::Threading::Sleep;
 
 #[cfg(not(test))]
 #[inline(never)]
@@ -30,6 +31,8 @@ pub extern "C" fn mainCRTStartup() -> ! {
 			core::ptr::null_mut(),
 			core::ptr::null(),
 		);
+
+		Sleep(10_000);
 
 		ExitProcess(0)
 	}
