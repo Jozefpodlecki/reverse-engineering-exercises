@@ -1,5 +1,7 @@
 # 0-empty
 
+[source](https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/0-empty/main.rs)
+
 Navigate to the project folder and compile with optimizations:
 
 ```sh

@@ -1,4 +1,10 @@
 
+# magic-string
+
+Very simple password checker
+
+[source](https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/magic-string/src/main.rs)
+
 ```
 peanalyse -i magic-string.exe --entry
 Architecture: Pe64

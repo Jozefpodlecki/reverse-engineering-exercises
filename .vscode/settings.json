@@ -3,6 +3,7 @@
         "exercises/0-empty/main.rs",
 		"exercises/no-std/Cargo.toml",
         "exercises/magic-string/Cargo.toml",
+		"exercises/string-clone/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",
 	],

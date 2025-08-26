@@ -4,3 +4,9 @@ language = "en"
 multilingual = false
 src = "src"
 title = "Reverse Engineering Exercises"
+
+[rust]
+edition = "2024"
+
+[output.html]
+git-repository-url = "https://github.com/Jozefpodlecki/reverse-engineering-exercises"
