@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>2-magic-string - Reverse Engineering Exercises</title>
+        <title>3-string-clone - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -178,222 +178,127 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="magic-string"><a class="header" href="#magic-string">magic-string</a></h1>
-<p>Very simple password checker</p>
+                        <h1 id="string-clone"><a class="header" href="#string-clone">string-clone</a></h1>
+<p>This program demonstrates the use of the rand crate for random string generation and includes a String cloning operation, both of which we will examine during reverse engineering.</p>
 <p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/magic-string/src/main.rs">source</a></p>
-<pre><code>peanalyse -i magic-string.exe --entry
-Architecture: Pe64
-AddressOfEntryPoint (RVA): 0x000177E0
-ImageBase:                0x140000000
-EntryPoint (VA):          0x1400177E0
+<p>0x140000240</p>
+<h3 id="function-prologue--stack-setup"><a class="header" href="#function-prologue--stack-setup">Function Prologue / Stack Setup</a></h3>
+<pre><code class="language-x86asm">00007FF70D261240 | 55                               | push rbp                                
+00007FF70D261241 | 41:57                            | push r15                                
+00007FF70D261243 | 41:56                            | push r14                                
+00007FF70D261245 | 41:55                            | push r13                                
+00007FF70D261247 | 41:54                            | push r12                                
+00007FF70D261249 | 56                               | push rsi                                
+00007FF70D26124A | 57                               | push rdi                                
+00007FF70D26124B | 53                               | push rbx                                
+00007FF70D26124C | 48:81EC 98000000                 | sub rsp,98                              
+00007FF70D261253 | 48:8DAC24 80000000               | lea rbp,qword ptr ss:[rsp+80]           
 </code></pre>
-<h3 id="maincrtstartup-0x1400177e0"><a class="header" href="#maincrtstartup-0x1400177e0"><code>mainCRTStartup 0x1400177E0</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-call &lt;magic-string.__security_init_cookie&gt;
-add rsp,28
-jmp &lt;magic-string.__scrt_common_main_seh&gt; # 0x140017664
+<h3 id="local-variable-initialization"><a class="header" href="#local-variable-initialization">Local Variable Initialization</a></h3>
+<pre><code class="language-x86asm">00007FF70D26125B | 48:C745 10 FEFFFFFF              | mov qword ptr ss:[rbp+10],FFFFFFFFFFFFF 
+00007FF70D261263 | 48:C745 F8 00000000              | mov qword ptr ss:[rbp-8],0              
+00007FF70D26126B | 48:C745 00 08000000              | mov qword ptr ss:[rbp],8                
+00007FF70D261273 | 48:C745 08 00000000              | mov qword ptr ss:[rbp+8],0        
 </code></pre>
-<h3 id="__scrt_common_main_seh-0x140017664"><a class="header" href="#__scrt_common_main_seh-0x140017664"><code>__scrt_common_main_seh 0x140017664</code></a></h3>
-<pre><code class="language-x86asm">mov qword ptr ss:[rsp+8],rbx
-mov qword ptr ss:[rsp+10],rsi
-push rdi
-sub rsp,30
-mov ecx,1
-call &lt;magic-string.__scrt_initialize_crt&gt;
-test al,al
-...
-mov r8,rdi
-mov rdx,rbx
-mov ecx,dword ptr ds:[rax]
-call &lt;magic-string.main&gt; # 0x140001310
-...
-add rsp,30
-pop rdi
-ret 
-</code></pre>
-<p>Initializes CRT and calls main..<br/>
-Standard SEH (Structured Exception Handling) setup.</p>
-<h3 id="main-0x140001310"><a class="header" href="#main-0x140001310"><code>main 0x140001310</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,38
-mov r9,rdx
-movsxd r8,ecx
-lea rax,qword ptr ds:[&lt;sub_7FF6AB8E1100&gt;] ; function pointer to Rust closure
-mov qword ptr ss:[rsp+30],rax
-mov byte ptr ss:[rsp+20],0
-lea rdx,qword ptr ds:[7FF6AB8FA3A0]
-lea rcx,qword ptr ss:[rsp+30]
-call &lt;magic-string.std::rt::lang_start_internal::h5830dd6b2696abe8&gt; # 0x140003080
-nop 
-add rsp,38
-ret 
-</code></pre>
-<p>Converts main to a trait object <code>(dyn Fn() -&gt; i32)</code>.<br/>
-Calls lang_start_internal with a fat pointer.</p>
-<h3 id="lang_start_internal-0x140003080"><a class="header" href="#lang_start_internal-0x140003080"><code>lang_start_internal 0x140003080</code></a></h3>
-<pre><code class="language-x86asm">push rbp
-push rsi
-push rdi
-sub rsp,A0
-lea rbp,qword ptr ss:[rsp+80]
-mov qword ptr ss:[rbp],FFFFFFFFFFFFFFFE
-mov rsi,rdx
-mov rdi,rcx
-...
-mov eax,dword ptr ds:[&lt;_tls_index&gt;]
-mov rdx,qword ptr gs:[58]
-mov rax,qword ptr ds:[rdx+rax*8]
-mov qword ptr ds:[rax+8],rcx
-mov qword ptr ds:[7FF6AB904220],rcx
-mov rcx,rdi
-call qword ptr ds:[rsi+28]
-...
-ret 
-</code></pre>
-<p>Implements Rust runtime startup and panic handling.<br/>
-Calls the main closure via vtable ([rsi+28]).</p>
-<h3 id="fat-pointer-dyn-fn---i32--sync"><a class="header" href="#fat-pointer-dyn-fn---i32--sync"><code>Fat pointer (dyn Fn() -&gt; i32 + Sync)</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-mov rcx,qword ptr ds:[rcx]
-call &lt;magic-string.sub_7FF6AB8E1020&gt; # 0x140001020
-xor eax,eax
-add rsp,28
-ret 
-</code></pre>
-<p>First stub: loads data pointer from fat pointer.</p>
-<h3 id="0x140001020"><a class="header" href="#0x140001020"><code>0x140001020</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-call rcx # 0x140001100
-nop 
-add rsp,28
-ret 
-</code></pre>
-<p>Second stub: trampoline calls the real <code>rust_main</code>.</p>
-<h3 id="rust_main"><a class="header" href="#rust_main"><code>rust_main</code></a></h3>
-<pre><code class="language-x86asm">push rbp
-sub rsp,80
-lea rbp,qword ptr ss:[rsp+80]
-mov qword ptr ss:[rbp-8],FFFFFFFFFFFFFFFE
-mov qword ptr ss:[rbp-28],0
-mov qword ptr ss:[rbp-20],1
-mov qword ptr ss:[rbp-18],0
-call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
-mov qword ptr ss:[rbp-10],rax
-lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1219
-cmp qword ptr ss:[rbp-18],14
-jne magic-string.7FF6AB8E1181
-mov rax,qword ptr ss:[rbp-20]
-movdqu xmm0,xmmword ptr ds:[rax]
-movd xmm1,dword ptr ds:[rax+10]
-pcmpeqb xmm1,xmmword ptr ds:[&lt;__xmm@00000000000000000000000077626e41&gt;]
-pcmpeqb xmm0,xmmword ptr ds:[&lt;__xmm@233d7138577448503841673436394c75&gt;]
-pand xmm0,xmm1
-pmovmskb eax,xmm0
-cmp eax,FFFF
-je magic-string.7FF6AB8E11EA
-lea rax,qword ptr ds:[7FF6AB8FA460]
-mov qword ptr ss:[rbp-58],rax
-mov qword ptr ss:[rbp-50],1
-mov qword ptr ss:[rbp-48],8
-pxor xmm0,xmm0
-movdqu xmmword ptr ss:[rbp-40],xmm0
-lea rcx,qword ptr ss:[rbp-58]
-call &lt;magic-string.std::io::stdio::_print::h033ee6824b02a35e&gt;
-call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
-mov qword ptr ss:[rbp-10],rax
-lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1247
-mov rdx,qword ptr ss:[rbp-28]
-test rdx,rdx
-je magic-string.7FF6AB8E11E0
-mov rcx,qword ptr ss:[rbp-20]
-mov r8d,1
-call &lt;magic-string.__rustc::__rust_dealloc&gt;
-nop 
-add rsp,80
-pop rbp
-ret 
-</code></pre>
-<h3 id="read-line"><a class="header" href="#read-line">Read Line</a></h3>
-<pre><code class="language-x86asm">lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1219
-</code></pre>
+<p>Allocates 152 bytes (0x98) on the stack for:</p>
 <ul>
-<li><code>read_line</code> writes the input directly into the stack-allocated buffer at <code>[rbp-28]</code></li>
-<li>The number of bytes read is stored at <code>[rbp-18]</code>.</li>
+<li>Vec internals (collector)</li>
+<li>String temporaries (str in the loop)</li>
+<li>RNG state / loop counters</li>
+<li>Establishes rbp as a base pointer to simplify access to local variables.</li>
 </ul>
-<h3 id="input-length-check"><a class="header" href="#input-length-check">Input Length Check</a></h3>
-<pre><code class="language-x86asm">cmp qword ptr ss:[rbp-18],14
-jne magic-string.7FF6AB8E1181
+<h3 id="rng-initialization"><a class="header" href="#rng-initialization">RNG Initialization</a></h3>
+<pre><code class="language-x86asm">00007FF70D26127B | E8 40040000                      | call &lt;string-clone._$LT$rand..rngs..thr 
+00007FF70D261280 | 48:89C6                          | mov rsi,rax                             
+00007FF70D261283 | 48:8945 C8                       | mov qword ptr ss:[rbp-38],rax
 </code></pre>
-<ul>
-<li>rbp-18 stores the number of bytes read from stdin.</li>
-<li>Compares it against 0x14 (20 decimal).</li>
-<li>If input length ≠ 20 → jump to “Denied” handler.</li>
-</ul>
-<h3 id="string-comparison-simd"><a class="header" href="#string-comparison-simd">String Comparison (SIMD)</a></h3>
-<pre><code class="language-x86asm">mov rax,[rbp-20]       ; pointer to buffer
-movdqu xmm0,[rax]       ; first 16 bytes
-movd xmm1,[rax+16]      ; next 4 bytes
-pcmpeqb xmm1,[__xmm@000000…] ; compare bytes with constant1
-pcmpeqb xmm0,[__xmm@233d…]   ; compare bytes with constant2
-pand xmm0,xmm1
-pmovmskb eax,xmm0
-cmp eax,FFFF
+<p><code>rsi</code> holds RNG state for later random sampling.</p>
+<h3 id="buffer-check"><a class="header" href="#buffer-check">Buffer check</a></h3>
+<pre><code class="language-x86asm">00007FF70D261287 | 48:8D78 10                       | lea rdi,qword ptr ds:[rax+10]           
+00007FF70D26128B | 48:8B88 50010000                 | mov rcx,qword ptr ds:[rax+150]          
+00007FF70D261292 | 48:83F9 40                       | cmp rcx,40                              
+00007FF70D261296 | 72 39                            | jb string-clone.7FF70D2612D1
 </code></pre>
-<p>Load input into XMM registers</p>
-<ul>
-<li>xmm0 = first 16 bytes of user input.</li>
-<li>xmm1 = next 4 bytes of user input (loaded with movd).</li>
-</ul>
-<p>Compare bytes against constants</p>
-<ul>
-<li>pcmpeqb xmm0, [pattern2] → sets each byte in xmm0 to 0xFF if equal, 0x00 if not.</li>
-<li>pcmpeqb xmm1, [pattern1] → same for xmm1.</li>
-</ul>
-<p>Combine results</p>
-<ul>
-<li>pand xmm0, xmm1 → bitwise AND of the results.</li>
-</ul>
-<p>Ensures all bytes must match across both chunks.</p>
-<p>Extract mask</p>
-<ul>
-<li>pmovmskb eax, xmm0 → extract the MSB of each byte into a 16-bit mask in eax.</li>
-</ul>
-<p>Check full match</p>
-<ul>
-<li>cmp eax, 0xFFFF → all 16 bytes in xmm0 matched.</li>
-</ul>
-<p>If not all match → jump to Denied handler.</p>
-<div class="table-wrapper"><table><thead><tr><th>Label</th><th>Value</th></tr></thead><tbody>
-<tr><td><code>__xmm@000...77626e41</code></td><td><code>"uL964gA8PHtW8q=#"</code></td></tr>
-<tr><td><code>__xmm@233d...34639…</code></td><td><code>"Anbw"</code></td></tr>
-<tr><td>Full target string</td><td><code>"uL964gA8PHtW8q=#Anbw"</code></td></tr>
-</tbody></table>
-</div>
-<p>Resources</p>
-<ul>
-<li>https://binarydefense.com/resources/blog/digging-through-rust-to-find-gold-extracting-secrets-from-rust-malware/</li>
-</ul>
+<h3 id="rng-refill--update"><a class="header" href="#rng-refill--update">RNG Refill / Update</a></h3>
+<pre><code class="language-x86asm">00007FF70D261298 | 48:8D8E 10010000                 | lea rcx,qword ptr ds:[rsi+110]          
+00007FF70D26129F | 48:8B86 48010000                 | mov rax,qword ptr ds:[rsi+148]          
+00007FF70D2612A6 | 48:85C0                          | test rax,rax                            
+00007FF70D2612A9 | 7E 1C                            | jle string-clone.7FF70D2612C7           
+00007FF70D2612AB | 48:05 00FFFFFF                   | add rax,FFFFFFFFFFFFFF00                
+00007FF70D2612B1 | 48:8986 48010000                 | mov qword ptr ds:[rsi+148],rax          
+00007FF70D2612B8 | BA 06000000                      | mov edx,6                               
+00007FF70D2612BD | 49:89F8                          | mov r8,rdi                              
+00007FF70D2612C0 | E8 6B040000                      | call &lt;string-clone.rand_chacha::guts::refill_wide::hc43b38d823048efe&gt;
+00007FF70D2612C5 | EB 08                            | jmp string-clone.7FF70D2612CF           
+00007FF70D2612C7 | 48:89FA                          | mov rdx,rdi                             
+00007FF70D2612CA | E8 E1FDFFFF                      | call &lt;string-clone.sub_7FF70D2610B0&gt;    
+</code></pre>
+<h3 id="rng-value-fetch--scaling"><a class="header" href="#rng-value-fetch--scaling">RNG Value Fetch / Scaling</a></h3>
+<pre><code class="language-x86asm">00007FF70D2612CF | 31C9                             | xor ecx,ecx                             
+00007FF70D2612D1 | 8B548E 10                        | mov edx,dword ptr ds:[rsi+rcx*4+10]
+</code></pre>
+<pre><code class="language-x86asm">00007FF70D2612D5 | 48:8D41 01                       | lea rax,qword ptr ds:[rcx+1]            
+00007FF70D2612D9 | 48:8986 50010000                 | mov qword ptr ds:[rsi+150],rax
+</code></pre>
+<pre><code class="language-x86asm">00007FF70D2612E0 | 48:8D1C92                        | lea rbx,qword ptr ds:[rdx+rdx*4]        
+00007FF70D2612E4 | 49:89DF                          | mov r15,rbx                             
+00007FF70D2612E7 | 49:C1EF 20                       | shr r15,20
+</code></pre>
+<p>Scales RNG value to desired range</p>
+<p>shr and lea are used for modulo/rejection to avoid bias</p>
+<h3 id="rng-rejection--bias-check"><a class="header" href="#rng-rejection--bias-check">RNG Rejection / Bias Check</a></h3>
+<pre><code class="language-x86asm">00007FF70D2612EB | 83FB FC                          | cmp ebx,FFFFFFFC
+00007FF70D2612EE | 72 5E                            | jb string-clone.7FF70D26134E            
+</code></pre>
+<h3 id="loop-counter--iteration-setup"><a class="header" href="#loop-counter--iteration-setup">Loop Counter / Iteration Setup</a></h3>
+<pre><code class="language-x86asm">00007FF70D2612F0 | 48:83F9 3F                       | cmp rcx,3F                              
+00007FF70D2612F4 | 75 3C                            | jne string-clone.7FF70D261332           
+00007FF70D2612F6 | 48:89F1                          | mov rcx,rsi                             
+00007FF70D2612F9 | 48:81C1 10010000                 | add rcx,110                             
+00007FF70D261300 | 48:8B86 48010000                 | mov rax,qword ptr ds:[rsi+148]          
+00007FF70D261307 | 48:85C0                          | test rax,rax                            
+00007FF70D26130A | 7E 1C                            | jle string-clone.7FF70D261328           
+00007FF70D26130C | 48:05 00FFFFFF                   | add rax,FFFFFFFFFFFFFF00                
+00007FF70D261312 | 48:8986 48010000                 | mov qword ptr ds:[rsi+148],rax          
+00007FF70D261319 | BA 06000000                      | mov edx,6                               
+00007FF70D26131E | 49:89F8                          | mov r8,rdi                              
+00007FF70D261321 | E8 0A040000                      | call &lt;string-clone.rand_chacha::guts::refill_wide::hc43b38d823048efe&gt;
+00007FF70D261326 | EB 08                            | jmp string-clone.7FF70D261330           
+00007FF70D261328 | 48:89FA                          | mov rdx,rdi                             
+00007FF70D26132B | E8 80FDFFFF                      | call &lt;string-clone.sub_7FF70D2610B0&gt;    
+00007FF70D261330 | 31C0                             | xor eax,eax                             
+00007FF70D261332 | 8B4C86 10                        | mov ecx,dword ptr ds:[rsi+rax*4+10]     
+00007FF70D261336 | 48:FFC0                          | inc rax                                 
+00007FF70D261339 | 48:8986 50010000                 | mov qword ptr ds:[rsi+150],rax          
+00007FF70D261340 | 48:8D0489                        | lea rax,qword ptr ds:[rcx+rcx*4]        
+00007FF70D261344 | 48:C1E8 20                       | shr rax,20                              
+00007FF70D261348 | 01C3                             | add ebx,eax                             
+00007FF70D26134A | 49:83D7 00                       | adc r15,0                               
+00007FF70D26134E | 48:8B45 C8                       | mov rax,qword ptr ss:[rbp-38]           
+00007FF70D261352 | 48:FF08                          | dec qword ptr ds:[rax]                  
+00007FF70D261355 | 75 09                            | jne string-clone.7FF70D261360           
+00007FF70D261357 | 48:8D4D C8                       | lea rcx,qword ptr ss:[rbp-38]           
+00007FF70D26135B | E8 40030000                      | call &lt;string-clone.alloc::rc::Rc$LT$T$C 
+00007FF70D261360 | 41:83C7 05                       | add r15d,5                              
+00007FF70D261364 | 45:31E4                          | xor r12d,r12d                           
+00007FF70D261367 | BE 08000000                      | mov esi,8                               
+00007FF70D26136C | 48:8D7D B0                       | lea rdi,qword ptr ss:[rbp-50]           
+00007FF70D261370 | 48:8D5D C8                       | lea rbx,qword ptr ss:[rbp-38]           
+00007FF70D261374 | 4C:8D6D A0                       | lea r13,qword ptr ss:[rbp-60]           
+00007FF70D261378 | 45:31F6                          | xor r14d,r14d                           
+00007FF70D26137B | EB 06                            | jmp string-clone.7FF70D261383           
+00007FF70D26137D | 0F1F00                           | nop dword ptr ds:[rax],eax              
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../exercises/1-no-std.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../exercises/2-magic-string.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../exercises/3-string-clone.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../exercises/4-fn_trait_object.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -403,11 +308,11 @@ cmp eax,FFFF
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../exercises/1-no-std.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../exercises/2-magic-string.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../exercises/3-string-clone.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../exercises/4-fn_trait_object.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

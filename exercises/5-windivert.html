@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Reverse Engineering Exercises</title>
-        <meta name="robots" content="noindex">
+        <title>5-windivert - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -13,34 +12,34 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
 
         <!-- Provide site root and default themes to javascript -->
         <script>
-            const path_to_root = "";
+            const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex.js";
+            window.path_to_searchindex_js = "../searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="../toc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -107,7 +106,7 @@
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
-                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
             </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -142,7 +141,7 @@
                     <h1 class="menu-title">Reverse Engineering Exercises</h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                         <a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises" title="Git repository" aria-label="Git repository">
@@ -179,717 +178,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="welcome"><a class="header" href="#welcome">Welcome</a></h1>
-<p>This is a growing set of exercises in which simple Rust programs are compiled into binaries and analyzed step by step with reverse engineering tools.</p>
-<p>The goal is to start from the simplest possible PE binaries and gradually move toward more complex Rust applications that showcase features such as:</p>
-<ul>
-<li>Basic console I/O</li>
-<li>Control flow (loops, branching, pattern matching)</li>
-<li>Functions and modules</li>
-<li>Error handling</li>
-<li>Structs, enums, traits</li>
-<li>Heap allocations and dynamic memory</li>
-<li>Generics and lifetimes</li>
-<li>Concurrency and async Rust</li>
-<li>Integration with external libraries</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="environment-details"><a class="header" href="#environment-details">Environment Details</a></h1>
-<p>The exact output of compiled binaries will vary slightly depending on your compiler version, target architecture, and operating system. To make results reproducible, here are the specifics of the environment I’ll be using throughout this book:</p>
-<pre><code class="language-sh">rustc --version --verbose
-rustc 1.88.0 (6b00bc388 2025-06-23)
-binary: rustc
-commit-hash: 6b00bc3880198600130e1cf62b8f8a93494488cc
-commit-date: 2025-06-23
-host: x86_64-pc-windows-msvc
-release: 1.88.0
-LLVM version: 20.1.5
-</code></pre>
-<blockquote>
-<p>The host field (x86_64-pc-windows-msvc) indicates the target platform: 64-bit Intel/AMD (x86_64), Windows OS (windows), and MSVC toolchain (msvc). This affects calling conventions, linking, and debug info (like PDB files)</p>
-</blockquote>
-<pre><code class="language-sh">systeminfo | findstr /B /C:"OS"
-OS Name:                       Microsoft Windows 11 Home
-OS Version:                    10.0.26100 N/A Build 26100
-OS Manufacturer:               Microsoft Corporation
-OS Configuration:              Standalone Workstation
-OS Build Type:                 Multiprocessor Free
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><p>The examples in this book are tool-agnostic. You can explore them with whatever reverse engineering workflow you prefer.</p>
-<p>Personally, I’ll be experimenting with RetDec, Ghidra, IDA Pro, and x64dbg, but readers are encouraged to use their own favorite tools, whether that’s Radare2, Binary Ninja, Hopper, or anything else.</p>
-<p>For quick PE analysis and disassembly, I’ve also created a lightweight Rust-based tool, peanalyse, which can show PE headers, image base, entrypoint, and disassemble code directly from a binary."</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="exercises"><a class="header" href="#exercises">Exercises</a></h1>
-<not where exercises are located>
-<pre><code class="language-sh">git clone https://github.com/Jozefpodlecki/reverse-engineering-exercises
-</code></pre>
-<markdown table><div style="break-before: page; page-break-before: always;"></div><h1 id="0-empty"><a class="header" href="#0-empty">0-empty</a></h1>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/0-empty/main.rs">source</a></p>
-<p>Navigate to the project folder and compile with optimizations:</p>
-<pre><code class="language-sh">cd 0-empty
-rustc -C opt-level=3 -C debuginfo=0 -o main-o3.exe main.rs
-</code></pre>
-<p>The binary under study is built from the source in this repository, which consists of nothing more than an empty Rust main function.</p>
-<p>Despite the trivial source, the resulting executable still pulls in Rust’s standard runtime and the Windows CRT. This means the file contains initialization code, runtime setup, and exit handling beyond what the high-level program expresses.</p>
-<p>In the following sections we’ll explore how the binary is structured, which subsystems it links against, and how control flows from the Windows loader into Rust’s runtime before eventually returning to the operating system.</p>
-<p>Entry point of a PE executable:</p>
-<pre><code class="language-sh">peanalyse -i main.exe --entry
-Architecture: Pe64
-AddressOfEntryPoint (RVA): 0x00014280
-ImageBase:                0x140000000
-EntryPoint (VA):          0x140014280
-</code></pre>
-<p>Examine the first few instructions executed.</p>
-<pre><code class="language-sh">objdump -D main-o3.exe --start-address=0x140014280 --stop-address=0x140014290
-
-main-o3.exe:     file format pei-x86-64
-
-
-Disassembly of section .text:
-
-0000000140014280 &lt;.text+0x13280&gt;:
-   140014280:   48 83 ec 28             sub    $0x28,%rsp
-   140014284:   e8 e3 02 00 00          call   0x14001456c
-   140014289:   48 83 c4 28             add    $0x28,%rsp
-   14001428d:   e9 72 fe ff ff          jmp    0x140014104
-</code></pre>
-<p>When decompiled in Ghidra, it appears as:</p>
-<pre><code class="language-c">ulong __cdecl mainCRTStartup(void *param_1)
-
-{
-  ulong uVar1;
-  
-  __security_init_cookie();
-  uVar1 = __scrt_common_main_seh();
-  return uVar1;
-}
-
-</code></pre>
-<p>First, <code>__security_init_cookie</code> initializes the compiler's stack buffer overflow protection cookie by generating a pseudo-random value using the system time, thread ID, process ID, and performance counter; it ensures the cookie is never the default sentinel value and stores both the cookie and its complement for use in stack security checks.</p>
-<p><a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/security-init-cookie?view=msvc-170">source</a></p>
-<pre><code class="language-c">void __cdecl __security_init_cookie(void)
-
-{
-  DWORD DVar1;
-  _FILETIME local_res8;
-  LARGE_INTEGER local_res10;
-  _FILETIME local_18 [2];
-  
-  if (__security_cookie == 0x2b992ddfa232) {
-    local_res8.dwLowDateTime = 0;
-    local_res8.dwHighDateTime = 0;
-    GetSystemTimeAsFileTime(&amp;local_res8);
-    local_18[0] = local_res8;
-    DVar1 = GetCurrentThreadId();
-    local_18[0] = (_FILETIME)((ulonglong)local_18[0] ^ (ulonglong)DVar1);
-    DVar1 = GetCurrentProcessId();
-    local_18[0] = (_FILETIME)((ulonglong)local_18[0] ^ (ulonglong)DVar1);
-    QueryPerformanceCounter(&amp;local_res10);
-    __security_cookie =
-         ((ulonglong)local_res10.s.LowPart &lt;&lt; 0x20 ^
-          CONCAT44(local_res10.s.HighPart,local_res10.s.LowPart) ^ (ulonglong)local_18[0] ^
-         (ulonglong)local_18) &amp; 0xffffffffffff;
-    if (__security_cookie == 0x2b992ddfa232) {
-      __security_cookie = 0x2b992ddfa233;
-    }
-  }
-  __security_cookie_complement = ~__security_cookie;
-  return;
-}
-
-</code></pre>
-<p><code>__scrt_common_main_seh</code> initializes the C runtime, acquires a startup lock to ensure thread-safe setup, runs global constructors via <code>_initterm_e</code> and <code>_initterm</code>, executes dynamic TLS init and destructor callbacks if present, retrieves <code>argc</code>, <code>argv</code>, and the environment, calls <code>main()</code> with these values, and then performs CRT and OS cleanup by calling <code>_cexit()</code> or <code>exit()</code> depending on whether the application is managed.</p>
-<p><code>__scrt_fastfail</code> triggers an immediate program termination using a <strong>low-level fast-fail mechanism</strong>. It checks for CPU support for the <code>fast fail</code> instruction, optionally invokes the debugger hook, captures the CPU context, performs stack unwinding if possible, and invokes <code>UnhandledExceptionFilter</code>. If no debugger handles the exception, it ensures the process terminates without normal cleanup, signaling a critical unrecoverable error.</p>
-<p><code>__scrt_initialize_crt</code> sets up CRT state for the module, marks DLL initialization if needed, detects CPU features via <code>__isa_available_init</code>, and determines whether the runtime environment should be initialized.</p>
-<pre><code class="language-c">int __cdecl __scrt_common_main_seh(void)
-
-{
-  char **_Argv;
-  bool bVar1;
-  bool bVar2;
-  int iVar3;
-  _func___cdecl_void_void_ptr_ulong_void_ptr **pp_Var4;
-  char **_Env;
-  undefined8 *puVar5;
-  int *piVar6;
-  
-  bVar1 = __scrt_initialize_crt(exe);
-  if (!bVar1) {
-                    /* WARNING: Subroutine does not return */
-    __scrt_fastfail(7);
-  }
-  bVar1 = false;
-  bVar2 = __scrt_acquire_startup_lock();
-  if (__scrt_current_native_startup_state == initializing) {
-                    /* WARNING: Subroutine does not return */
-    __scrt_fastfail(7);
-  }
-  if (__scrt_current_native_startup_state == uninitialized) {
-    __scrt_current_native_startup_state = initializing;
-    iVar3 = _initterm_e(&amp;__xi_a,&amp;__xi_z);
-    if (iVar3 != 0) {
-      return 0xff;
-    }
-    _initterm(&amp;__xc_a,&amp;__xc_z);
-    __scrt_current_native_startup_state = initialized;
-  }
-  else {
-    bVar1 = true;
-  }
-  __scrt_release_startup_lock(bVar2);
-  pp_Var4 = __scrt_get_dyn_tls_init_callback();
-  if ((*pp_Var4 != (_func___cdecl_void_void_ptr_ulong_void_ptr *)0x0) &amp;&amp;
-     (bVar2 = __scrt_is_nonwritable_in_current_image(pp_Var4), bVar2)) {
-    _guard_dispatch_icall_nop();
-  }
-  pp_Var4 = __scrt_get_dyn_tls_dtor_callback();
-  if ((*pp_Var4 != (_func___cdecl_void_void_ptr_ulong_void_ptr *)0x0) &amp;&amp;
-     (bVar2 = __scrt_is_nonwritable_in_current_image(pp_Var4), bVar2)) {
-    _register_thread_local_exe_atexit_callback(*pp_Var4);
-  }
-  _Env = (char **)_get_initial_narrow_environment();
-  puVar5 = (undefined8 *)__p___argv();
-  _Argv = (char **)*puVar5;
-  piVar6 = (int *)__p___argc();
-  iVar3 = main(*piVar6,_Argv,_Env);
-  bVar2 = __scrt_is_managed_app();
-  if (bVar2) {
-    if (!bVar1) {
-      _cexit();
-    }
-    __scrt_uninitialize_crt(true,false);
-    return iVar3;
-  }
-
-  exit(iVar3);
-}
-
-</code></pre>
-<p><a href="https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L173">lang_start_internal</a>
-<a href="https://github.com/rust-lang/rust/blob/master/library/std/src/rt.rs#L111">init</a></p>
-<pre><code class="language-c">int __cdecl main(int _Argc,char **_Argv,char **_Env)
-{
-  int extraout_EAX;
-  
-  std::rt::lang_start_internal();
-  return extraout_EAX;
-}
-
-</code></pre>
-<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
-<p>The PE entry -&gt; <code>mainCRTStartup</code> -&gt; <code>__scrt_common_main_seh</code> -&gt; <code>lang_start_internal</code> -&gt; <code>main()</code> chain handles runtime initialization, CRT setup, and exception handling before executing the user-defined <code>main()</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="1-no-std"><a class="header" href="#1-no-std">1-no-std</a></h1>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/no-std/src/main.rs">source</a></p>
-<p>This exercise explores a minimal Windows executable written in Rust. The program is compiled without the standard library (#![no_std]) and does not link against the C runtime.</p>
-<p>All functionality — writing to the console and exiting the process — is implemented manually using Windows API calls.</p>
-<pre><code class="language-sh">cd no-std
-cargo build --release
-</code></pre>
-<pre><code class="language-sh">peanalyse -i no-std.exe --entry
-Architecture: Pe64
-AddressOfEntryPoint (RVA): 0x00001000
-ImageBase:                0x140000000
-EntryPoint (VA):          0x140001000
-</code></pre>
-<p>The program’s entry point is at 0x140001000.</p>
-<h3 id="disassembly"><a class="header" href="#disassembly">Disassembly</a></h3>
-<pre><code class="language-sh">cd target/release
-peanalyse -i no-std.exe --disassemble-from-addr=0x140001000
-0x140001000: sub        rsp, 0x28
-0x140001004: mov        ecx, 0xfffffff5
-0x140001009: call       qword ptr [rip + 0x1009] ; target = 0x140002018
-0x14000100F: mov        qword ptr [rsp + 0x20], 0
-0x140001018: lea        rdx, [rip + 0x1009]  ; target = 0x140002028
-0x14000101F: mov        rcx, rax
-0x140001022: mov        r8d, 0xc
-0x140001028: xor        r9d, r9d
-0x14000102B: call       qword ptr [rip + 0xfcf] ; target = 0x140002000
-0x140001031: mov        ecx, 0x2710
-0x140001036: call       qword ptr [rip + 0xfcc] ; target = 0x140002008
-0x14000103C: xor        ecx, ecx
-0x14000103E: call       qword ptr [rip + 0xfcc] ; target = 0x140002010
-0x140001044: int3
-</code></pre>
-<pre><code class="language-asm">0x140001000: sub        rsp, 0x28
-</code></pre>
-<p>Reserve 0x28 bytes (40 bytes) on the stack for local variables / alignment.</p>
-<pre><code>0x140001004: mov        ecx, 0xfffffff5
-</code></pre>
-<pre><code class="language-rs">pub const STD_OUTPUT_HANDLE: STD_HANDLE = 4294967285u32;
-</code></pre>
-<p><code>0xfffffff5</code> is the signed 32-bit representation of 4294967285u32.</p>
-<h3 id="rip-relative-addressing-for-calls"><a class="header" href="#rip-relative-addressing-for-calls">RIP-relative addressing for calls</a></h3>
-<p>Calls use RIP-relative addressing to locate the thunk table:</p>
-<pre><code>0x140001009: call       qword ptr [rip + 0x1009]
-</code></pre>
-<p>Resolving:</p>
-<pre><code>0x140001009 + 6 + 0x1009 = 0x140002018
-</code></pre>
-<h3 id="thunk-table-contents"><a class="header" href="#thunk-table-contents">Thunk table contents</a></h3>
-<pre><code class="language-sh">peanalyse -i no-std.exe --read-addr=0x140002018
-0x140002018 - 0x2228
-</code></pre>
-<p>Each thunk entry holds the RVA of the corresponding IAT slot:</p>
-<h3 id="iat-entries-patched-by-the-loader"><a class="header" href="#iat-entries-patched-by-the-loader">IAT entries patched by the loader</a></h3>
-<pre><code class="language-sh">peanalyse -i no-std.exe --iat-entries
-DLL: kernel32.dll
-  WriteConsoleA @ RVA 0x00002238 VA 0x140002238 (hint 1296)
-  Sleep @ RVA 0x00002248 VA 0x140002248 (hint 1192)
-  ExitProcess @ RVA 0x00002250 VA 0x140002250 (hint 274)
-  GetStdHandle @ RVA 0x00002228 VA 0x140002228 (hint 621)
-</code></pre>
-<pre><code>Example flow: GetStdHandle
-0x140001009: call qword ptr [rip + 0x1001]
-   → resolves to 0x140002010 (thunk entry, fixed at compile time)
-   → thunk entry contains pointer to 0x140002218 (true IAT slot)
-   → loader patches [0x140002218] with &amp;kernel32!GetStdHandle
-   → final call jumps into kernel32.dll
-</code></pre>
-<p>Lastly</p>
-<pre><code>0x14000100F: mov        qword ptr [rsp + 0x20], 0
-0x140001018: lea        rdx, [rip + 0x1009]  ; target = 0x140002028
-0x14000101F: mov        rcx, rax
-0x140001022: mov        r8d, 0xc
-0x140001028: xor        r9d, r9d
-0x14000102B: call       qword ptr [rip + 0xfcf] ; target = 0x140002000
-</code></pre>
-<p>Microsoft x64 calling convention.
-rcx → 1st argument
-rdx → 2nd argument
-r8 → 3rd
-r9 → 4th
-Additional stack space (shadow space) is already reserved at [rsp..rsp+0x20].</p>
-<p>It is the caller's responsibility to allocate 32 bytes of "shadow space" on the stack right before calling the function (regardless of the actual number of parameters used), and to pop the stack after the call.</p>
-<h3 id="resources"><a class="header" href="#resources">Resources</a></h3>
-<ul>
-<li><a href="https://gist.github.com/rtldg/91dd76b65748540717ed6f88d95a41b1">Calling convention</a></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="magic-string"><a class="header" href="#magic-string">magic-string</a></h1>
-<p>Very simple password checker</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/magic-string/src/main.rs">source</a></p>
-<pre><code>peanalyse -i magic-string.exe --entry
-Architecture: Pe64
-AddressOfEntryPoint (RVA): 0x000177E0
-ImageBase:                0x140000000
-EntryPoint (VA):          0x1400177E0
-</code></pre>
-<h3 id="maincrtstartup-0x1400177e0"><a class="header" href="#maincrtstartup-0x1400177e0"><code>mainCRTStartup 0x1400177E0</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-call &lt;magic-string.__security_init_cookie&gt;
-add rsp,28
-jmp &lt;magic-string.__scrt_common_main_seh&gt; # 0x140017664
-</code></pre>
-<h3 id="__scrt_common_main_seh-0x140017664"><a class="header" href="#__scrt_common_main_seh-0x140017664"><code>__scrt_common_main_seh 0x140017664</code></a></h3>
-<pre><code class="language-x86asm">mov qword ptr ss:[rsp+8],rbx
-mov qword ptr ss:[rsp+10],rsi
-push rdi
-sub rsp,30
-mov ecx,1
-call &lt;magic-string.__scrt_initialize_crt&gt;
-test al,al
-...
-mov r8,rdi
-mov rdx,rbx
-mov ecx,dword ptr ds:[rax]
-call &lt;magic-string.main&gt; # 0x140001310
-...
-add rsp,30
-pop rdi
-ret 
-</code></pre>
-<p>Initializes CRT and calls main..<br/>
-Standard SEH (Structured Exception Handling) setup.</p>
-<h3 id="main-0x140001310"><a class="header" href="#main-0x140001310"><code>main 0x140001310</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,38
-mov r9,rdx
-movsxd r8,ecx
-lea rax,qword ptr ds:[&lt;sub_7FF6AB8E1100&gt;] ; function pointer to Rust closure
-mov qword ptr ss:[rsp+30],rax
-mov byte ptr ss:[rsp+20],0
-lea rdx,qword ptr ds:[7FF6AB8FA3A0]
-lea rcx,qword ptr ss:[rsp+30]
-call &lt;magic-string.std::rt::lang_start_internal::h5830dd6b2696abe8&gt; # 0x140003080
-nop 
-add rsp,38
-ret 
-</code></pre>
-<p>Converts main to a trait object <code>(dyn Fn() -&gt; i32)</code>.<br/>
-Calls lang_start_internal with a fat pointer.</p>
-<h3 id="lang_start_internal-0x140003080"><a class="header" href="#lang_start_internal-0x140003080"><code>lang_start_internal 0x140003080</code></a></h3>
-<pre><code class="language-x86asm">push rbp
-push rsi
-push rdi
-sub rsp,A0
-lea rbp,qword ptr ss:[rsp+80]
-mov qword ptr ss:[rbp],FFFFFFFFFFFFFFFE
-mov rsi,rdx
-mov rdi,rcx
-...
-mov eax,dword ptr ds:[&lt;_tls_index&gt;]
-mov rdx,qword ptr gs:[58]
-mov rax,qword ptr ds:[rdx+rax*8]
-mov qword ptr ds:[rax+8],rcx
-mov qword ptr ds:[7FF6AB904220],rcx
-mov rcx,rdi
-call qword ptr ds:[rsi+28]
-...
-ret 
-</code></pre>
-<p>Implements Rust runtime startup and panic handling.<br/>
-Calls the main closure via vtable ([rsi+28]).</p>
-<h3 id="fat-pointer-dyn-fn---i32--sync"><a class="header" href="#fat-pointer-dyn-fn---i32--sync"><code>Fat pointer (dyn Fn() -&gt; i32 + Sync)</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-mov rcx,qword ptr ds:[rcx]
-call &lt;magic-string.sub_7FF6AB8E1020&gt; # 0x140001020
-xor eax,eax
-add rsp,28
-ret 
-</code></pre>
-<p>First stub: loads data pointer from fat pointer.</p>
-<h3 id="0x140001020"><a class="header" href="#0x140001020"><code>0x140001020</code></a></h3>
-<pre><code class="language-x86asm">sub rsp,28
-call rcx # 0x140001100
-nop 
-add rsp,28
-ret 
-</code></pre>
-<p>Second stub: trampoline calls the real <code>rust_main</code>.</p>
-<h3 id="rust_main"><a class="header" href="#rust_main"><code>rust_main</code></a></h3>
-<pre><code class="language-x86asm">push rbp
-sub rsp,80
-lea rbp,qword ptr ss:[rsp+80]
-mov qword ptr ss:[rbp-8],FFFFFFFFFFFFFFFE
-mov qword ptr ss:[rbp-28],0
-mov qword ptr ss:[rbp-20],1
-mov qword ptr ss:[rbp-18],0
-call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
-mov qword ptr ss:[rbp-10],rax
-lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1219
-cmp qword ptr ss:[rbp-18],14
-jne magic-string.7FF6AB8E1181
-mov rax,qword ptr ss:[rbp-20]
-movdqu xmm0,xmmword ptr ds:[rax]
-movd xmm1,dword ptr ds:[rax+10]
-pcmpeqb xmm1,xmmword ptr ds:[&lt;__xmm@00000000000000000000000077626e41&gt;]
-pcmpeqb xmm0,xmmword ptr ds:[&lt;__xmm@233d7138577448503841673436394c75&gt;]
-pand xmm0,xmm1
-pmovmskb eax,xmm0
-cmp eax,FFFF
-je magic-string.7FF6AB8E11EA
-lea rax,qword ptr ds:[7FF6AB8FA460]
-mov qword ptr ss:[rbp-58],rax
-mov qword ptr ss:[rbp-50],1
-mov qword ptr ss:[rbp-48],8
-pxor xmm0,xmm0
-movdqu xmmword ptr ss:[rbp-40],xmm0
-lea rcx,qword ptr ss:[rbp-58]
-call &lt;magic-string.std::io::stdio::_print::h033ee6824b02a35e&gt;
-call &lt;magic-string.std::io::stdio::stdin::hb37ee29cfde5d31f&gt;
-mov qword ptr ss:[rbp-10],rax
-lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1247
-mov rdx,qword ptr ss:[rbp-28]
-test rdx,rdx
-je magic-string.7FF6AB8E11E0
-mov rcx,qword ptr ss:[rbp-20]
-mov r8d,1
-call &lt;magic-string.__rustc::__rust_dealloc&gt;
-nop 
-add rsp,80
-pop rbp
-ret 
-</code></pre>
-<h3 id="read-line"><a class="header" href="#read-line">Read Line</a></h3>
-<pre><code class="language-x86asm">lea rcx,qword ptr ss:[rbp-10]
-lea rdx,qword ptr ss:[rbp-28]
-call &lt;magic-string.std::io::stdio::Stdin::read_line::h9f941692afe5412c&gt;
-test al,1
-jne magic-string.7FF6AB8E1219
-</code></pre>
-<ul>
-<li><code>read_line</code> writes the input directly into the stack-allocated buffer at <code>[rbp-28]</code></li>
-<li>The number of bytes read is stored at <code>[rbp-18]</code>.</li>
-</ul>
-<h3 id="input-length-check"><a class="header" href="#input-length-check">Input Length Check</a></h3>
-<pre><code class="language-x86asm">cmp qword ptr ss:[rbp-18],14
-jne magic-string.7FF6AB8E1181
-</code></pre>
-<ul>
-<li>rbp-18 stores the number of bytes read from stdin.</li>
-<li>Compares it against 0x14 (20 decimal).</li>
-<li>If input length ≠ 20 → jump to “Denied” handler.</li>
-</ul>
-<h3 id="string-comparison-simd"><a class="header" href="#string-comparison-simd">String Comparison (SIMD)</a></h3>
-<pre><code class="language-x86asm">mov rax,[rbp-20]       ; pointer to buffer
-movdqu xmm0,[rax]       ; first 16 bytes
-movd xmm1,[rax+16]      ; next 4 bytes
-pcmpeqb xmm1,[__xmm@000000…] ; compare bytes with constant1
-pcmpeqb xmm0,[__xmm@233d…]   ; compare bytes with constant2
-pand xmm0,xmm1
-pmovmskb eax,xmm0
-cmp eax,FFFF
-</code></pre>
-<p>Load input into XMM registers</p>
-<ul>
-<li>xmm0 = first 16 bytes of user input.</li>
-<li>xmm1 = next 4 bytes of user input (loaded with movd).</li>
-</ul>
-<p>Compare bytes against constants</p>
-<ul>
-<li>pcmpeqb xmm0, [pattern2] → sets each byte in xmm0 to 0xFF if equal, 0x00 if not.</li>
-<li>pcmpeqb xmm1, [pattern1] → same for xmm1.</li>
-</ul>
-<p>Combine results</p>
-<ul>
-<li>pand xmm0, xmm1 → bitwise AND of the results.</li>
-</ul>
-<p>Ensures all bytes must match across both chunks.</p>
-<p>Extract mask</p>
-<ul>
-<li>pmovmskb eax, xmm0 → extract the MSB of each byte into a 16-bit mask in eax.</li>
-</ul>
-<p>Check full match</p>
-<ul>
-<li>cmp eax, 0xFFFF → all 16 bytes in xmm0 matched.</li>
-</ul>
-<p>If not all match → jump to Denied handler.</p>
-<div class="table-wrapper"><table><thead><tr><th>Label</th><th>Value</th></tr></thead><tbody>
-<tr><td><code>__xmm@000...77626e41</code></td><td><code>"uL964gA8PHtW8q=#"</code></td></tr>
-<tr><td><code>__xmm@233d...34639…</code></td><td><code>"Anbw"</code></td></tr>
-<tr><td>Full target string</td><td><code>"uL964gA8PHtW8q=#Anbw"</code></td></tr>
-</tbody></table>
-</div>
-<p>Resources</p>
-<ul>
-<li>https://binarydefense.com/resources/blog/digging-through-rust-to-find-gold-extracting-secrets-from-rust-malware/</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="string-clone"><a class="header" href="#string-clone">string-clone</a></h1>
-<p>This program demonstrates the use of the rand crate for random string generation and includes a String cloning operation, both of which we will examine during reverse engineering.</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/magic-string/src/main.rs">source</a></p>
-<p>0x140000240</p>
-<h3 id="function-prologue--stack-setup"><a class="header" href="#function-prologue--stack-setup">Function Prologue / Stack Setup</a></h3>
-<pre><code class="language-x86asm">00007FF70D261240 | 55                               | push rbp                                
-00007FF70D261241 | 41:57                            | push r15                                
-00007FF70D261243 | 41:56                            | push r14                                
-00007FF70D261245 | 41:55                            | push r13                                
-00007FF70D261247 | 41:54                            | push r12                                
-00007FF70D261249 | 56                               | push rsi                                
-00007FF70D26124A | 57                               | push rdi                                
-00007FF70D26124B | 53                               | push rbx                                
-00007FF70D26124C | 48:81EC 98000000                 | sub rsp,98                              
-00007FF70D261253 | 48:8DAC24 80000000               | lea rbp,qword ptr ss:[rsp+80]           
-</code></pre>
-<h3 id="local-variable-initialization"><a class="header" href="#local-variable-initialization">Local Variable Initialization</a></h3>
-<pre><code class="language-x86asm">00007FF70D26125B | 48:C745 10 FEFFFFFF              | mov qword ptr ss:[rbp+10],FFFFFFFFFFFFF 
-00007FF70D261263 | 48:C745 F8 00000000              | mov qword ptr ss:[rbp-8],0              
-00007FF70D26126B | 48:C745 00 08000000              | mov qword ptr ss:[rbp],8                
-00007FF70D261273 | 48:C745 08 00000000              | mov qword ptr ss:[rbp+8],0        
-</code></pre>
-<p>Allocates 152 bytes (0x98) on the stack for:</p>
-<ul>
-<li>Vec internals (collector)</li>
-<li>String temporaries (str in the loop)</li>
-<li>RNG state / loop counters</li>
-<li>Establishes rbp as a base pointer to simplify access to local variables.</li>
-</ul>
-<h3 id="rng-initialization"><a class="header" href="#rng-initialization">RNG Initialization</a></h3>
-<pre><code class="language-x86asm">00007FF70D26127B | E8 40040000                      | call &lt;string-clone._$LT$rand..rngs..thr 
-00007FF70D261280 | 48:89C6                          | mov rsi,rax                             
-00007FF70D261283 | 48:8945 C8                       | mov qword ptr ss:[rbp-38],rax
-</code></pre>
-<p><code>rsi</code> holds RNG state for later random sampling.</p>
-<h3 id="buffer-check"><a class="header" href="#buffer-check">Buffer check</a></h3>
-<pre><code class="language-x86asm">00007FF70D261287 | 48:8D78 10                       | lea rdi,qword ptr ds:[rax+10]           
-00007FF70D26128B | 48:8B88 50010000                 | mov rcx,qword ptr ds:[rax+150]          
-00007FF70D261292 | 48:83F9 40                       | cmp rcx,40                              
-00007FF70D261296 | 72 39                            | jb string-clone.7FF70D2612D1
-</code></pre>
-<h3 id="rng-refill--update"><a class="header" href="#rng-refill--update">RNG Refill / Update</a></h3>
-<pre><code class="language-x86asm">00007FF70D261298 | 48:8D8E 10010000                 | lea rcx,qword ptr ds:[rsi+110]          
-00007FF70D26129F | 48:8B86 48010000                 | mov rax,qword ptr ds:[rsi+148]          
-00007FF70D2612A6 | 48:85C0                          | test rax,rax                            
-00007FF70D2612A9 | 7E 1C                            | jle string-clone.7FF70D2612C7           
-00007FF70D2612AB | 48:05 00FFFFFF                   | add rax,FFFFFFFFFFFFFF00                
-00007FF70D2612B1 | 48:8986 48010000                 | mov qword ptr ds:[rsi+148],rax          
-00007FF70D2612B8 | BA 06000000                      | mov edx,6                               
-00007FF70D2612BD | 49:89F8                          | mov r8,rdi                              
-00007FF70D2612C0 | E8 6B040000                      | call &lt;string-clone.rand_chacha::guts::refill_wide::hc43b38d823048efe&gt;
-00007FF70D2612C5 | EB 08                            | jmp string-clone.7FF70D2612CF           
-00007FF70D2612C7 | 48:89FA                          | mov rdx,rdi                             
-00007FF70D2612CA | E8 E1FDFFFF                      | call &lt;string-clone.sub_7FF70D2610B0&gt;    
-</code></pre>
-<h3 id="rng-value-fetch--scaling"><a class="header" href="#rng-value-fetch--scaling">RNG Value Fetch / Scaling</a></h3>
-<pre><code class="language-x86asm">00007FF70D2612CF | 31C9                             | xor ecx,ecx                             
-00007FF70D2612D1 | 8B548E 10                        | mov edx,dword ptr ds:[rsi+rcx*4+10]
-</code></pre>
-<pre><code class="language-x86asm">00007FF70D2612D5 | 48:8D41 01                       | lea rax,qword ptr ds:[rcx+1]            
-00007FF70D2612D9 | 48:8986 50010000                 | mov qword ptr ds:[rsi+150],rax
-</code></pre>
-<pre><code class="language-x86asm">00007FF70D2612E0 | 48:8D1C92                        | lea rbx,qword ptr ds:[rdx+rdx*4]        
-00007FF70D2612E4 | 49:89DF                          | mov r15,rbx                             
-00007FF70D2612E7 | 49:C1EF 20                       | shr r15,20
-</code></pre>
-<p>Scales RNG value to desired range</p>
-<p>shr and lea are used for modulo/rejection to avoid bias</p>
-<h3 id="rng-rejection--bias-check"><a class="header" href="#rng-rejection--bias-check">RNG Rejection / Bias Check</a></h3>
-<pre><code class="language-x86asm">00007FF70D2612EB | 83FB FC                          | cmp ebx,FFFFFFFC
-00007FF70D2612EE | 72 5E                            | jb string-clone.7FF70D26134E            
-</code></pre>
-<h3 id="loop-counter--iteration-setup"><a class="header" href="#loop-counter--iteration-setup">Loop Counter / Iteration Setup</a></h3>
-<pre><code class="language-x86asm">00007FF70D2612F0 | 48:83F9 3F                       | cmp rcx,3F                              
-00007FF70D2612F4 | 75 3C                            | jne string-clone.7FF70D261332           
-00007FF70D2612F6 | 48:89F1                          | mov rcx,rsi                             
-00007FF70D2612F9 | 48:81C1 10010000                 | add rcx,110                             
-00007FF70D261300 | 48:8B86 48010000                 | mov rax,qword ptr ds:[rsi+148]          
-00007FF70D261307 | 48:85C0                          | test rax,rax                            
-00007FF70D26130A | 7E 1C                            | jle string-clone.7FF70D261328           
-00007FF70D26130C | 48:05 00FFFFFF                   | add rax,FFFFFFFFFFFFFF00                
-00007FF70D261312 | 48:8986 48010000                 | mov qword ptr ds:[rsi+148],rax          
-00007FF70D261319 | BA 06000000                      | mov edx,6                               
-00007FF70D26131E | 49:89F8                          | mov r8,rdi                              
-00007FF70D261321 | E8 0A040000                      | call &lt;string-clone.rand_chacha::guts::refill_wide::hc43b38d823048efe&gt;
-00007FF70D261326 | EB 08                            | jmp string-clone.7FF70D261330           
-00007FF70D261328 | 48:89FA                          | mov rdx,rdi                             
-00007FF70D26132B | E8 80FDFFFF                      | call &lt;string-clone.sub_7FF70D2610B0&gt;    
-00007FF70D261330 | 31C0                             | xor eax,eax                             
-00007FF70D261332 | 8B4C86 10                        | mov ecx,dword ptr ds:[rsi+rax*4+10]     
-00007FF70D261336 | 48:FFC0                          | inc rax                                 
-00007FF70D261339 | 48:8986 50010000                 | mov qword ptr ds:[rsi+150],rax          
-00007FF70D261340 | 48:8D0489                        | lea rax,qword ptr ds:[rcx+rcx*4]        
-00007FF70D261344 | 48:C1E8 20                       | shr rax,20                              
-00007FF70D261348 | 01C3                             | add ebx,eax                             
-00007FF70D26134A | 49:83D7 00                       | adc r15,0                               
-00007FF70D26134E | 48:8B45 C8                       | mov rax,qword ptr ss:[rbp-38]           
-00007FF70D261352 | 48:FF08                          | dec qword ptr ds:[rax]                  
-00007FF70D261355 | 75 09                            | jne string-clone.7FF70D261360           
-00007FF70D261357 | 48:8D4D C8                       | lea rcx,qword ptr ss:[rbp-38]           
-00007FF70D26135B | E8 40030000                      | call &lt;string-clone.alloc::rc::Rc$LT$T$C 
-00007FF70D261360 | 41:83C7 05                       | add r15d,5                              
-00007FF70D261364 | 45:31E4                          | xor r12d,r12d                           
-00007FF70D261367 | BE 08000000                      | mov esi,8                               
-00007FF70D26136C | 48:8D7D B0                       | lea rdi,qword ptr ss:[rbp-50]           
-00007FF70D261370 | 48:8D5D C8                       | lea rbx,qword ptr ss:[rbp-38]           
-00007FF70D261374 | 4C:8D6D A0                       | lea r13,qword ptr ss:[rbp-60]           
-00007FF70D261378 | 45:31F6                          | xor r14d,r14d                           
-00007FF70D26137B | EB 06                            | jmp string-clone.7FF70D261383           
-00007FF70D26137D | 0F1F00                           | nop dword ptr ds:[rax],eax              
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><p>This exercise explores how Rust represents function trait objects at a low level. Specifically, we examine:</p>
-<pre><code>fn_trait: &amp;(dyn Fn() -&gt; i32 + Sync + RefUnwindSafe)
-</code></pre>
-<p>This is a trait object reference: a pointer to a function-like value that is thread-safe (Sync) and panic-safe (RefUnwindSafe).</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/fn_trait_object/src/main.rs">source</a></p>
-<h3 id="setting-up-the-trait-object"><a class="header" href="#setting-up-the-trait-object">Setting up the Trait Object</a></h3>
-<pre><code class="language-x86asm">00007FF7C1D914B0 | 48:83EC 38       | sub rsp,38          ; allocate 56 bytes stack
-00007FF7C1D914B4 | 48:8D4C24 36     | lea rcx,[rsp+36]   ; closure environment pointer (data)
-00007FF7C1D914B9 | 48:8D15 687F0100 | lea rdx,[vtable]   ; vtable pointer
-00007FF7C1D914D2 | E8 69FEFFFF      | call call_fn_trait  ; call the wrapper function
-</code></pre>
-<h3 id="loading-the-fat-pointer"><a class="header" href="#loading-the-fat-pointer">Loading the fat pointer</a></h3>
-<pre><code class="language-x86asm">00007FF7C1D91425 | 48:8B4C24 20 | mov rcx,qword ptr ss:[rsp+20]  
-00007FF7C1D9142A | 48:8B5424 28 | mov rdx,qword ptr ss:[rsp+28]  
-00007FF7C1D9142F | FF52 28      | call qword ptr ds:[rdx+28]                                                        |
-</code></pre>
-<p>RCX = closure environment pointer (data)
-RDX = vtable pointer (vtable)
-call [rdx+28] = calls FnOnce::call_once via vtable.</p>
-<h3 id="trait-object-layout"><a class="header" href="#trait-object-layout">Trait Object Layout</a></h3>
-<pre><code>struct FnVtable {
-    void* drop_in_place;     // offset 0x00
-    unsigned long long size; // offset 0x08
-    unsigned long long align;// offset 0x10
-    void* call;              // offset 0x18 (Fn::call)
-    void* call_mut;          // offset 0x20 (FnMut::call_mut)
-    void* call_once;         // offset 0x28 (FnOnce::call_once)
-};
-
-struct FnTraitObject {
-    void* data;              // 0x00 (closure environment)
-    void* vtable;            // 0x08 (pointer to FnVtable)
-};
-</code></pre>
-<h3 id="observing-in-x64dbg"><a class="header" href="#observing-in-x64dbg">Observing in x64dbg</a></h3>
-<p>Struct tab → Parse Header → Display Type</p>
-<p>Define FnVtable</p>
-<p>Map RCX → data and RDX → vtable.</p>
-<p>Step into call_once via vtable to see the constant returned.</p>
-<p>Return value appears in RAX:</p>
-<h3 id="closure-execution-void-call"><a class="header" href="#closure-execution-void-call">Closure Execution <code>void* call</code></a></h3>
-<pre><code class="language-x86asm">00007FF7C1D911C0 | 48:83EC 38                       | sub rsp,38                                                   | function.rs:250
-00007FF7C1D911C4 | 48:894C24 30                     | mov qword ptr ss:[rsp+30],rcx                                |
-00007FF7C1D911C9 | E8 32000000                      | call &lt;fn_trait_object.core::ops::function::FnOnce::call_once |
-00007FF7C1D911CE | 90                               | nop                                                          |
-00007FF7C1D911CF | 48:83C4 38                       | add rsp,38                                                   |
-00007FF7C1D911D3 | C3                               | ret                                                          |                            |
-</code></pre>
-<h3 id="closure-execution-void-call_mut-void-call_once"><a class="header" href="#closure-execution-void-call_mut-void-call_once">Closure Execution <code>void* call_mut</code>, <code>void* call_once</code></a></h3>
-<pre><code class="language-x86asm">00007FF7C1D91500 | 50                               | push rax                                                     | main.rs:18
-00007FF7C1D91501 | 48:890C24                        | mov qword ptr ss:[rsp],rcx                                   |
-00007FF7C1D91505 | B8 87D61200                      | mov eax,12D687                                               |
-00007FF7C1D9150A | 59                               | pop rcx                                                      |
-00007FF7C1D9150B | C3                               | ret                                                          |                                                       |
-</code></pre>
-<pre><pre class="playground"><code class="language-rust edition2024"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let closure = || 1234567;
-<span class="boring">}</span></code></pre></pre>
-<p>The closure simply loads the constant 1234567 into RAX</p>
-<h3 id="captured-variables-example"><a class="header" href="#captured-variables-example">Captured variables example</a></h3>
-<pre><pre class="playground"><code class="language-rust edition2024"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let a = 1234567i32;
-let b = 99u64;
-let closure = || {
-    a + b as i32
-};
-<span class="boring">}</span></code></pre></pre>
-<p>It compiles the closure into a struct-like environment containing these captured values.</p>
-<p>This environment is passed as a pointer (RCX) to the generated closure code when called via a trait object.</p>
-<pre><code class="language-x86asm">00007FF7FA7914C0 | 48:83EC 48           | sub rsp,48           ; allocate 72 bytes for closure
-00007FF7FA7914C4 | C74424 2C 87D61200   | mov dword ptr [rsp+2C],12D687  ; store 'a' (1234567)
-00007FF7FA7914CC | 48:C74424 30 63000000| mov qword ptr [rsp+30],63      ; store 'b' (99)
-00007FF7FA7914D5 | 48:8D4424 2C         | lea rax,[rsp+2C]    ; load address of 'a'
-00007FF7FA7914DA | 48:894424 38         | mov [rsp+38],rax    ; save pointer in closure env
-00007FF7FA7914DF | 48:8D4424 30         | lea rax,[rsp+30]    ; load address of 'b'
-00007FF7FA7914E4 | 48:894424 40         | mov [rsp+40],rax    ; save pointer in closure env
-</code></pre>
-<p>[rsp+38] = pointer to a</p>
-<p>[rsp+40] = pointer to b</p>
-<p>This closure environment is what RCX will point to when the closure is called.</p>
-<h4 id="inside-the-closure"><a class="header" href="#inside-the-closure">Inside the Closure</a></h4>
-<pre><code class="language-x86asm">00007FF7FA791544 | 48:894C24 30 | mov [rsp+30], rcx
-</code></pre>
-<p>Store RCX, which points to the closure environment, on the stack at [rsp+30].</p>
-<pre><code class="language-x86asm">00007FF7FA791549 | 48:8B4424 30 | mov rax, [rsp+30]
-00007FF7FA79154E | 48:8B00      | mov rax, [rax]
-00007FF7FA791551 | 48:894424 38 | mov [rsp+38], rax
-</code></pre>
-<p>Load the closure environment pointer from [rsp+30] into RAX.</p>
-<p>Dereference it ([rax]) to get the first vtable pointer (often drop_in_place).</p>
-<p>Store this in [rsp+38] — this is now the first field of the fat pointer/closure struct.</p>
-<pre><code class="language-x86asm">00007FF7FA791556 | 48:8B4424 30 | mov rax, [rsp+30]
-00007FF7FA79155B | 48:8B40 08   | mov rax, [rax+8]
-00007FF7FA79155F | 48:894424 40 | mov [rsp+40], rax
-</code></pre>
-<p>Reload closure env pointer from [rsp+30] into RAX.</p>
-<p>Dereference [rax+8] — second field of the environment (often the pointer to captured data).</p>
-<p>Store at [rsp+40].</p>
-<pre><code class="language-x86asm">00007FF7FA791564 | 48:8B01         | mov rax,[rcx]       ; load pointer to 'a'
-00007FF7FA791567 | 8B00            | mov eax,[rax]       ; load value of 'a'
-00007FF7FA791569 | 48:8B49 08      | mov rcx,[rcx+8]     ; load pointer to 'b'
-00007FF7FA79156D | 48:8B09         | mov rcx,[rcx]       ; load value of 'b'
-00007FF7FA791570 | 01C8            | add eax,ecx         ; perform addition a + b
-</code></pre>
-<p>RCX points to the closure environment.</p>
-<p>[RCX] = pointer to a, [RCX+8] = pointer to b.</p>
-<p>mov eax,[rax] and mov rcx,[rcx] dereference the pointers to get the actual values.</p>
-<p>add eax, ecx computes the closure result.</p>
-<div style="break-before: page; page-break-before: always;"></div><p>This exercise explores how</p>
+                        <p>This exercise explores how</p>
 <p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/windivert/src/main.rs">source</a></p>
 <h3 id="function-prologue"><a class="header" href="#function-prologue">Function Prologue</a></h3>
 <pre><code class="language-x86asm">00007FF7C3EE8C70 | 55           | push rbp
@@ -1192,6 +481,9 @@ let closure = || {
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../exercises/4-fn_trait_object.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
 
                         <div style="clear: both"></div>
@@ -1200,6 +492,9 @@ let closure = || {
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../exercises/4-fn_trait_object.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
             </nav>
 
@@ -1213,21 +508,16 @@ let closure = || {
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
 
         <!-- Custom JS scripts -->
 
-        <script>
-        window.addEventListener('load', function() {
-            window.setTimeout(window.print, 100);
-        });
-        </script>
 
 
     </div>
