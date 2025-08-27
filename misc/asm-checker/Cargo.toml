@@ -1,0 +1,18 @@
+[package]
+name = "asm-checker"
+version = "0.0.1"
+authors = ["Jozef Podlecki"]
+edition = "2024"
+rust-version = "1.88"
+
+[dependencies]
+anyhow = "1.0.96"
+log = "0.4.18"
+pdb = "0.8.0"
+clap = { version = "4.5.31", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1

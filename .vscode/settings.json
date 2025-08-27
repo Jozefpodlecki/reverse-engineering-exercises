@@ -9,6 +9,7 @@
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",
 		"tools/pdbparser/Cargo.toml",
+		"misc/asm-checker/Cargo.toml",
 	],
 	"files.exclude": {
 	},
