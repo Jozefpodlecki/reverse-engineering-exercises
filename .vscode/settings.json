@@ -4,8 +4,11 @@
 		"exercises/no-std/Cargo.toml",
         "exercises/magic-string/Cargo.toml",
 		"exercises/string-clone/Cargo.toml",
+		"exercises/fn_trait_object/Cargo.toml",
+		"exercises/windivert/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",
+		"tools/pdbparser/Cargo.toml",
 	],
 	"files.exclude": {
 	},

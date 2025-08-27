@@ -5,3 +5,6 @@
     - [0-empty](./exercises/0-empty.md)
     - [1-no-std](./exercises/1-no-std.md)
     - [2-magic-string](./exercises/2-magic-string.md)
+    - [3-string-clone](./exercises/3-string-clone.md)
+    - [4-fn_trait_object](./exercises/4-fn_trait_object.md)
+    - [5-windivert](./exercises/5-windivert.md)
