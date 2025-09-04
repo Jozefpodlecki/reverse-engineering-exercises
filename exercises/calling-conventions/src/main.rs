@@ -10,6 +10,10 @@ struct BigStruct {
     h: i32,
 }
 
+fn rust_calling_struct(s: BigStruct) -> i32 {
+    s.a + s.b + s.c + s.d + s.e + s.f + s.g + s.h
+}
+
 fn rust_calling(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32, g: i32) -> i32 {
     a + b + c + d + e + f + g
 }
@@ -32,6 +36,9 @@ fn main() {
     let r2 = c_calling(1, 2, 3, 4, 5, 6, 7);
     let r3 = system_calling(1, 2, 3, 4, 5, 6, 7);
     let r4 = fastcall_calling(1, 2, 3, 4, 5, 6, 7);
+
+    let strct = BigStruct { a:1, b:2, c:3, d:4, e:5, f:6, g:7, h:8 };
+    rust_calling_struct(strct);
 
     println!("rust_calling_convention: {}", r1);
     println!("c_calling_convention: {}", r2);
