@@ -7,6 +7,10 @@ fn main() {
     let (tx, rx) = mpsc::channel::<Vec<u8>>();
 
     let filter = format!("tcp.SrcPort == {port}");
+    // let args = format_args!("tcp.SrcPort == {port}");
+    // std::fmt::format(args);
+    // fmt::format($crate::__export::format_args!($($arg)*))
+
     let flags = WinDivertFlags::new().set_recv_only().set_sniff();
     let windivert = WinDivert::network(&filter, 0, flags).unwrap();
     let mut buffer = vec![0u8; 65535];

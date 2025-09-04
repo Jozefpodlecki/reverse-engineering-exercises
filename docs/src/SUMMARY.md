@@ -8,3 +8,4 @@
     - [3-string-clone](./exercises/3-string-clone.md)
     - [4-fn_trait_object](./exercises/4-fn_trait_object.md)
     - [5-windivert](./exercises/5-windivert.md)
+    - [6-calling-conventions](./exercises/6-calling-conventions.md)

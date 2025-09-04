@@ -6,6 +6,7 @@
 		"exercises/string-clone/Cargo.toml",
 		"exercises/fn_trait_object/Cargo.toml",
 		"exercises/windivert/Cargo.toml",
+		"exercises/calling-conventions/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",
 		"tools/pdbparser/Cargo.toml",
