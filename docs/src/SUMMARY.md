@@ -9,3 +9,5 @@
     - [4-fn_trait_object](./exercises/4-fn_trait_object.md)
     - [5-windivert](./exercises/5-windivert.md)
     - [6-calling-conventions](./exercises/6-calling-conventions.md)
+    - [7-enums](./exercises/7-enums.md)
+    - [8-tauri](./exercises/8-tauri.md)
