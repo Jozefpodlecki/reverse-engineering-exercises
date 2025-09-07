@@ -26,7 +26,7 @@ Windows x64 calling convention:
 - Registers: RCX, RDX, R8, R9 for the first 4 parameters.
 - Stack: parameters 5, 6, 7 go on the stack at offsets from RSP.
 
-```
+```x86asm
 0x14000188F: mov        dword ptr [rsp + 0x44], eax
 0x140001893: mov        dword ptr [rsp + 0x48], 1
 0x14000189B: mov        dword ptr [rsp + 0x4c], 2
