@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>6-calling-conventions - Reverse Engineering Exercises</title>
+        <title>7-enums - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -178,67 +178,111 @@
 
                 <div id="content" class="content">
                     <main>
-                        <p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/calling-conventions/src/main.rs">source</a></p>
-<pre><code class="language-sh">peanalyse -i calling-conventions.exe --entry
-Architecture: Pe64
-AddressOfEntryPoint (RVA): 0x000168A0
-ImageBase:                0x140000000
-EntryPoint (VA):          0x1400168A0
+                        <p>This program generates a random creature variant and prints its name using a precomputed lookup table.
+The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.</p>
+<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs">source</a></p>
+<pre><code>       
+```x86asm
+call rand::rngs::thread::rng
+mov rsi, rax
+mov [rbp+local_20], rax
 </code></pre>
-<pre><code class="language-sh">peanalyse -i calling-conventions.exe --disassemble-from-addr=0x1400016B0
-0x1400016EA: mov        dword ptr [rsp + 0x38], eax
-0x1400016EE: mov        ecx, 1
-0x1400016F3: mov        edx, 2
-0x1400016F8: mov        r8d, 3
-0x1400016FE: mov        r9d, 4
-0x140001704: mov        dword ptr [rsp + 0x20], 5
-0x14000170C: mov        dword ptr [rsp + 0x28], 6
-0x140001714: mov        dword ptr [rsp + 0x30], 7
-0x14000171C: call       0x1400012c0
+<p>Initializes ThreadRng and stores its pointer in rsi and a local variable.</p>
+<pre><code class="language-x86asm">mov rcx, [rsi + 0x150]
+cmp rcx, 0x40
+jc SHORT LAB_BUFFER_OK
 </code></pre>
-<p>Windows x64 calling convention:</p>
+<p>Loads the RNG buffer index and checks if it needs a refill.</p>
+<pre><code class="language-x86asm">lea r8, [rax + 0x10]
+add rax, 0x110
+mov rcx, [rsi + 0x148]
+test rcx, rcx
+jle SHORT LAB_REPLENISH_FALLBACK
+add rcx, -0x100
+mov [rsi + 0x148], rcx
+mov rcx, rax
+mov edx, 0x6
+call rand_chacha::guts::refill_wide
+jmp SHORT LAB_CONTINUE
+</code></pre>
+<pre><code class="language-x86asm">LAB_REPLENISH_FALLBACK:
+mov rcx, rax
+mov rdx, r8
+call FUN_140001050
+</code></pre>
+<p>Refills the ChaCha RNG buffer if exhausted.
+Fallback path for insufficient buffer, calls internal RNG helper.</p>
+<pre><code class="language-x86asm">lea rcx, [DAT_STRING_OFFSET_TABLE]
+movsxd rdx, [rcx + rax*4]
+add rdx, rcx
+lea rcx, [DAT_STRING_PTR_TABLE]
+mov rax, [rcx + rax*8]
+mov [rbp + local_30], rdx
+mov [rbp + local_28], rax
+</code></pre>
+<p>Maps the enum variant to a string pointer using precomputed offset and pointer tables.</p>
+<p>[rcx + rax*4]</p>
 <ul>
-<li>Registers: RCX, RDX, R8, R9 for the first 4 parameters.</li>
-<li>Stack: parameters 5, 6, 7 go on the stack at offsets from RSP.</li>
+<li>The offset table uses 32-bit entries (4 bytes each).</li>
+<li>rax holds the random enum variant (0–31).</li>
+<li>Multiplying rax by 4 gives the byte offset for the correct entry.</li>
+<li>MOVSXD rdx, [rcx + rax*4] loads the 32-bit offset for the variant and sign-extends it to 64-bit.</li>
+<li>This offset is relative to the base of the string table, so adding rdx + rcx produces the absolute string address.</li>
 </ul>
-<pre><code class="language-x86asm">0x14000188F: mov        dword ptr [rsp + 0x44], eax
-0x140001893: mov        dword ptr [rsp + 0x48], 1
-0x14000189B: mov        dword ptr [rsp + 0x4c], 2
-0x1400018A3: mov        dword ptr [rsp + 0x50], 3
-0x1400018AB: mov        dword ptr [rsp + 0x54], 4
-0x1400018B3: mov        dword ptr [rsp + 0x58], 5
-0x1400018BB: mov        dword ptr [rsp + 0x5c], 6
-0x1400018C3: mov        dword ptr [rsp + 0x60], 7
-0x1400018CB: mov        dword ptr [rsp + 0x64], 8
-0x1400018D3: mov        rax, qword ptr [rsp + 0x48]
-0x1400018D8: mov        qword ptr [rsp + 0x1a8], rax
-0x1400018E0: mov        rax, qword ptr [rsp + 0x50]
-0x1400018E5: mov        qword ptr [rsp + 0x1b0], rax
-0x1400018ED: mov        rax, qword ptr [rsp + 0x58]
-0x1400018F2: mov        qword ptr [rsp + 0x1b8], rax
-0x1400018FA: mov        rax, qword ptr [rsp + 0x60]
-0x1400018FF: mov        qword ptr [rsp + 0x1c0], rax
-0x140001907: lea        rcx, [rsp + 0x1a8]
-0x14000190F: call       0x1400011b0
-</code></pre>
-<p>On x86-64 Windows (MSVC calling convention):</p>
+<p>[rcx + rax*8]</p>
 <ul>
-<li>If the struct fits in 1–2 registers (≤16 bytes), it is passed in registers.</li>
-<li>If the struct is larger than 16 bytes, it is passed by reference: the caller allocates space on the stack and passes a pointer.</li>
-<li>The callee then reads fields via that pointer.</li>
-<li><code>BigStruct</code> is 32 bytes, so rust will pass a pointer to struct rather than copying all fields into registers.
--- <code>lea rcx, [rsp + ...] or mov rcx, &amp;struct_on_stack</code> before the call.</li>
+<li>The pointer table uses 64-bit entries (8 bytes each).</li>
+<li>Again, rax is the variant index.</li>
+<li>Multiplying by 8 gives the byte offset of the correct pointer.</li>
+<li>MOV rax, [rcx + rax*8] loads the full 64-bit pointer directly, no sign-extension needed.</li>
 </ul>
+<pre><code class="language-x86asm">lea rax, [rbp + local_30]
+mov [rbp + local_40], rax
+lea rax, [LAB_140001030]
+mov [rbp + local_38], rax
+lea rax, [DAT_CONST_1]
+mov [rbp + local_70], rax
+mov [rbp + local_68], 2
+mov [rbp + local_50], 0
+lea rax, [rbp + local_40]
+mov [rbp + local_60], rax
+mov [rbp + local_58], 1
+lea rcx, [rbp + local_70]
+call std::io::stdio::_print
+</code></pre>
+<p>Prepares arguments and calls _print to output the creature name.</p>
+<pre><code class="language-x86asm">mov rax, [rbp + local_20]
+dec [rax]
+jz SHORT LAB_DROP
+add rsp, 0x88
+pop rsi
+pop rbp
+ret
+mov rax, [rbp + local_20]
+</code></pre>
+<p>Loads the pointer to the ThreadRng instance, which is stored in local_20.</p>
+<p><code>dec [rax]</code></p>
+<p>Decrements the reference count of the ThreadRng.
+ThreadRng is behind an Rc (reference-counted smart pointer).</p>
+<p><code>jz SHORT LAB_DROP</code></p>
+<pre><code class="language-x86asm">LAB_DROP:
+lea rcx, [rbp + local_20]
+call alloc::rc::Rc&lt;T,A&gt;::drop_slow
+</code></pre>
+<p>If the reference count reached zero, jump to drop_slow to free the memory.
+If not zero, skip and just clean the stack.</p>
+<p><code>add rsp, 0x88; pop rsi; pop rbp; ret</code></p>
+<p>Standard stack cleanup and return from main if the RNG instance is still alive (ref count &gt; 0).</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../exercises/5-windivert.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../exercises/6-calling-conventions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../exercises/7-enums.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../exercises/8-tauri.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -248,11 +292,11 @@ EntryPoint (VA):          0x1400168A0
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../exercises/5-windivert.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../exercises/6-calling-conventions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../exercises/7-enums.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../exercises/8-tauri.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
