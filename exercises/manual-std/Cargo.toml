@@ -1,0 +1,15 @@
+[package]
+name = "manual-std"
+version = "0.0.1"
+authors = ["Jozef Podlecki"]
+edition = "2018"
+rust-version = "1.88"
+
+[dependencies]
+winapi = { version = "0.3.0", features = ["processenv", "winuser", "winbase", "consoleapi", "sysinfoapi", "processthreadsapi", "profileapi", "minwinbase", "errhandlingapi", "debugapi"] }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
