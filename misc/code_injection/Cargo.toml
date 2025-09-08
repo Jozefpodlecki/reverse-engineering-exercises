@@ -1,0 +1,17 @@
+[package]
+name = "code_injection"
+description = "For demonstration purposes only"
+version = "0.0.1"
+authors = ["Jozef Podlecki"]
+edition = "2024"
+rust-version = "1.88"
+
+[dependencies]
+winapi = { version = "0.3.0", features = ["winuser", "libloaderapi", "sysinfoapi", "processthreadsapi", "profileapi", "minwinbase", "errhandlingapi", "debugapi"] }
+iced-x86 = "1.21.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+codegen-units = 1
