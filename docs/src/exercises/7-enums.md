@@ -3,8 +3,6 @@ This program generates a random creature variant and prints its name using a pre
 The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.
 
 [source](https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs)
-
-```
        
 ```x86asm
 call rand::rngs::thread::rng
