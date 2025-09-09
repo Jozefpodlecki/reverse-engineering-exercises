@@ -2,13 +2,15 @@ use core::arch::asm;
 use core::arch::x86_64::{__cpuid, __cpuid_count};
 use core::mem::MaybeUninit;
 use core::ptr;
+use core::sync::atomic::{AtomicU64, Ordering};
 use winapi::shared::minwindef::{FALSE, FILETIME};
 use winapi::um::debugapi::{DebugBreak, IsDebuggerPresent};
 use winapi::um::errhandlingapi::{RaiseFailFastException, SetUnhandledExceptionFilter, UnhandledExceptionFilter, LPTOP_LEVEL_EXCEPTION_FILTER};
+use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::{ExitProcess, GetCurrentProcessId, GetCurrentThreadId, IsProcessorFeaturePresent};
 use winapi::um::profileapi::QueryPerformanceCounter;
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::um::winnt::{RtlCaptureContext, CONTEXT, EXCEPTION_POINTERS, EXCEPTION_RECORD, LARGE_INTEGER, PEXCEPTION_POINTERS};
+use winapi::um::winnt::{RtlCaptureContext, CONTEXT, EXCEPTION_POINTERS, EXCEPTION_RECORD, IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR, IMAGE_DOS_HEADER, IMAGE_NT_HEADERS32, IMAGE_NT_HEADERS64, LARGE_INTEGER, PEXCEPTION_POINTERS};
 
 use crate::logger::ConsoleLogger;
 
@@ -79,23 +81,80 @@ unsafe fn read_xcr0() -> u64 {
     ((edx as u64) << 32) | (eax as u64)
 }
 
-#[no_mangle]
-pub extern "C" fn __scrt_acquire_startup_lock() -> bool { true }
+
+static __SCRT_NATIVE_STARTUP_LOCK: AtomicU64 = AtomicU64::new(0);
 
 #[no_mangle]
-pub extern "C" fn __scrt_release_startup_lock(_lock: bool) {}
+pub extern "C" fn __scrt_is_ucrt_dll_in_use() -> i32 {
+    1 // assume UCRT is always in use for this example
+}
+
+#[no_mangle]
+pub extern "C" fn __scrt_acquire_startup_lock() -> bool {
+    unsafe {
+         if __scrt_is_ucrt_dll_in_use() == 0 {
+            // UCRT not in use, no lock needed
+            return false;
+        }
+
+        // Use the thread id as a simple unique pointer for the atomic CAS
+        let thread_id = winapi::um::processthreadsapi::GetCurrentThreadId() as u64;
+
+        // Spin until we acquire the lock
+        loop {
+            let prev = __SCRT_NATIVE_STARTUP_LOCK.load(Ordering::Relaxed);
+            if prev == 0 {
+                // Try to acquire the lock
+                if __SCRT_NATIVE_STARTUP_LOCK
+                    .compare_exchange(0, thread_id, Ordering::Acquire, Ordering::Relaxed)
+                    .is_ok()
+                {
+                    break;
+                }
+            } else {
+                // Lock is held by another thread, spin
+                core::hint::spin_loop();
+            }
+        }
+
+        true
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn __scrt_release_startup_lock(lock_was_acquired: bool) {
+    unsafe {
+        // Only release if UCRT is in use and caller did not already indicate lock
+        if __scrt_is_ucrt_dll_in_use() != 0 && !lock_was_acquired {
+            // Reset lock to 0
+            __SCRT_NATIVE_STARTUP_LOCK.store(0, Ordering::Release);
+        }
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn __scrt_current_native_startup_state() -> u8 { 0 }
 
 #[no_mangle]
-pub extern "C" fn _initterm_e(_start: *const (), _end: *const ()) -> i32 { 0 }
+pub extern "C" fn _initterm_e(_start: *const (), _end: *const ()) -> i32 {
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::_initterm_e
+    0
+}
 
 #[no_mangle]
-pub extern "C" fn _initterm(_start: *const (), _end: *const ()) {}
+pub extern "C" fn _initterm(_start: *const (), _end: *const ()) {
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::_initterm
+}
 
 #[no_mangle]
 pub extern "C" fn __scrt_get_dyn_tls_init_callback() -> *mut Option<extern "C" fn()> {
+    /**
+     * _func___cdecl_void_void_ptr_ulong_void_ptr ** __cdecl __scrt_get_dyn_tls_init_callback(void)
+
+{
+  return &__dyn_tls_init_callback;
+}
+     */
     static mut EMPTY: Option<extern "C" fn()> = None;
     unsafe { &mut EMPTY }
 }
@@ -113,13 +172,19 @@ pub extern "C" fn __scrt_is_nonwritable_in_current_image(_ptr: *const ()) -> boo
 pub extern "C" fn _guard_dispatch_icall_nop() {}
 
 #[no_mangle]
-pub extern "C" fn _register_thread_local_exe_atexit_callback(_cb: extern "C" fn()) {}
+pub extern "C" fn _register_thread_local_exe_atexit_callback(_cb: extern "C" fn()) {
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::_register_thread_local_exe_atexit_callback
+}
 
 #[no_mangle]
-pub extern "C" fn _get_initial_narrow_environment() -> *mut *mut u8 { core::ptr::null_mut() }
+pub extern "C" fn _get_initial_narrow_environment() -> *mut *mut u8 { 
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::_get_initial_narrow_environment
+    core::ptr::null_mut()
+}
 
 #[no_mangle]
 pub extern "C" fn __p___argv() -> *mut *mut *mut u8 {
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::__p___argv
     static mut EMPTY_ARGV: *mut *mut u8 = core::ptr::null_mut();
     unsafe { &mut EMPTY_ARGV }
 }
@@ -131,13 +196,69 @@ pub extern "C" fn __p___argc() -> *mut i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn __scrt_is_managed_app() -> bool { false }
+pub extern "C" fn __scrt_is_managed_app() -> bool {
+    unsafe {
+        // Get HMODULE for the current process/executable
+        let hmod = GetModuleHandleW(ptr::null());
+        if hmod.is_null() {
+            return false;
+        }
+
+        let dos_header = hmod as *const IMAGE_DOS_HEADER;
+        if (*dos_header).e_magic != 0x5A4D {
+            // "MZ"
+            return false;
+        }
+
+        // PE header location
+        let nt_headers_ptr = (hmod as usize + (*dos_header).e_lfanew as usize) as *const u8;
+        let signature = *(nt_headers_ptr as *const u32);
+        if signature != 0x00004550 {
+            // "PE\0\0"
+            return false;
+        }
+
+        // Determine if 32-bit or 64-bit PE
+        let magic = *(nt_headers_ptr.add(0x18) as *const u16);
+        if magic == 0x10b {
+            // PE32
+            let nt_headers = nt_headers_ptr as *const IMAGE_NT_HEADERS32;
+            let clr_dir = (*nt_headers).OptionalHeader.DataDirectory
+                [IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR as usize];
+            clr_dir.VirtualAddress != 0
+        } else if magic == 0x20b {
+            // PE32+
+            let nt_headers = nt_headers_ptr as *const IMAGE_NT_HEADERS64;
+            let clr_dir = (*nt_headers).OptionalHeader.DataDirectory
+                [IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR as usize];
+            clr_dir.VirtualAddress != 0
+        } else {
+            false
+        }
+    }
+}
 
 #[no_mangle]
-pub extern "C" fn _cexit() {}
+pub extern "C" fn _cexit() {
+    // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::_cexit
+}
 
 #[no_mangle]
-pub extern "C" fn __scrt_uninitialize_crt(_b1: bool, _b2: bool) {}
+pub extern "C" fn __scrt_stub_for_acrt_uninitialize(param: bool) -> bool {
+    return true;
+}
+
+#[no_mangle]
+pub extern "C" fn __scrt_uninitialize_crt(param_1: bool, param_2: bool) -> bool {
+    unsafe {
+        if ((!IS_INITIALIZED_AS_DLL) || (!param_2)) {
+            __scrt_stub_for_acrt_uninitialize(param_1);
+            __scrt_stub_for_acrt_uninitialize(param_1);
+        }
+
+        true
+    }
+}
 
 #[no_mangle]
 pub extern "C" fn exit(code: u32) -> ! {
@@ -500,6 +621,7 @@ pub extern "C" fn __scrt_common_main_seh() -> u32 {
             return ret;
         }
 
+        // API-MS-WIN-CRT-RUNTIME-L1-1-0.DLL::exit
         exit(ret);
     }
 }

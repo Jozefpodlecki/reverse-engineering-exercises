@@ -9,3 +9,7 @@
 - https://medium.com/@naore32/beyond-the-main-unearthing-sneaky-functions-521f593ebeb3
 - https://www.youtube.com/watch?v=I_nJltUokE0&ab_channel=DuncanOgilvie
 - https://malwaretech.com/2024/02/bypassing-edrs-with-edr-preload.html
+- https://skr1x.github.io/portable-executable-format/
+- https://www.osronline.com/article.cfm%5Earticle=516.htm
+- https://www.bordergate.co.uk/import-address-tables/?utm_source=chatgpt.com
+- https://vrodxda.hatenablog.com/entry/2019/09/18/085454

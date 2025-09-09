@@ -11,3 +11,6 @@
     - [6-calling-conventions](./exercises/6-calling-conventions.md)
     - [7-enums](./exercises/7-enums.md)
     - [8-tauri](./exercises/8-tauri.md)
+- [Misc](misc.md)
+    - [Loader](./misc/loader.md)
+    - [Shell](./misc/shell.md)

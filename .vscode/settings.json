@@ -7,10 +7,14 @@
 		"exercises/windivert/Cargo.toml",
 		"exercises/calling-conventions/Cargo.toml",
 		"exercises/enums/Cargo.toml",
+		"exercises/tauri-app/src-tauri/Cargo.toml",
+		"exercises/thread/Cargo.toml",
+		"exercises/manual-std/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",
 		"tools/pdbparser/Cargo.toml",
 		"misc/asm-checker/Cargo.toml",
+		"misc/code_injection/Cargo.toml"
 	],
 	"files.exclude": {
 	},

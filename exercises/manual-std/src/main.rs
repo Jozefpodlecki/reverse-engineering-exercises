@@ -8,6 +8,13 @@ use core::panic::PanicInfo;
 
 use winapi::um::processthreadsapi::ExitProcess;
 
+#[link(name = "ucrt")]
+extern "system" {
+    pub fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8;
+    pub fn memset(dest: *mut u8, c: i32, n: usize) -> *mut u8;
+    pub fn memcmp(s1: *const u8, s2: *const u8, n: usize) -> i32;
+} 
+
 use crate::crt::{__scrt_common_main_seh, __security_init_cookie};
 
 mod crt;

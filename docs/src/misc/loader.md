@@ -73,6 +73,18 @@ C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um
 -- Stack setup
 -- Exception frame setup
 
+`ntdll.NtReleaseWorkerFactoryWorker`
+`ntdll.RtlGetReturnAddressHijackTarget`
+`ntdll.ZwWaitForWorkViaWorkerFactory`
+`ntdll.NtWaitForSingleObject`
+
+`LdrpInitialize`
+`LdrpInitializeProcess`
+`LdtpInitializeThread`
+`TestAlert`
+`NtContinue`
+
+
 ### `ntdll.NtMapViewOfSection`
 
 ```c
