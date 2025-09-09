@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>7-enums - Reverse Engineering Exercises</title>
+        <title>Shell - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -178,111 +178,61 @@
 
                 <div id="content" class="content">
                     <main>
-                        <p>This program generates a random creature variant and prints its name using a precomputed lookup table.
-The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs">source</a></p>
-<pre><code class="language-x86asm">call rand::rngs::thread::rng
-mov rsi, rax
-mov [rbp+local_20], rax
-</code></pre>
-<p>Initializes ThreadRng and stores its pointer in rsi and a local variable.</p>
-<pre><code class="language-x86asm">mov rcx, [rsi + 0x150]
-cmp rcx, 0x40
-jc SHORT LAB_BUFFER_OK
-</code></pre>
-<p>Loads the RNG buffer index and checks if it needs a refill.</p>
-<pre><code class="language-x86asm">lea r8, [rax + 0x10]
-add rax, 0x110
-mov rcx, [rsi + 0x148]
-test rcx, rcx
-jle SHORT LAB_REPLENISH_FALLBACK
-add rcx, -0x100
-mov [rsi + 0x148], rcx
-mov rcx, rax
-mov edx, 0x6
-call rand_chacha::guts::refill_wide
-jmp SHORT LAB_CONTINUE
-</code></pre>
-<pre><code class="language-x86asm">LAB_REPLENISH_FALLBACK:
-mov rcx, rax
-mov rdx, r8
-call FUN_140001050
-</code></pre>
-<p>Refills the ChaCha RNG buffer if exhausted.
-Fallback path for insufficient buffer, calls internal RNG helper.</p>
-<pre><code class="language-x86asm">lea rcx, [DAT_STRING_OFFSET_TABLE]
-movsxd rdx, [rcx + rax*4]
-add rdx, rcx
-lea rcx, [DAT_STRING_PTR_TABLE]
-mov rax, [rcx + rax*8]
-mov [rbp + local_30], rdx
-mov [rbp + local_28], rax
-</code></pre>
-<p>Maps the enum variant to a string pointer using precomputed offset and pointer tables.</p>
-<p>[rcx + rax*4]</p>
+                        <h1 id="what-happens-when-you-double-click-an-executable-in-windows"><a class="header" href="#what-happens-when-you-double-click-an-executable-in-windows">What Happens When You Double-Click an Executable in Windows</a></h1>
+<h2 id="1-user-action-and-shell-event"><a class="header" href="#1-user-action-and-shell-event">1. User Action and Shell Event</a></h2>
 <ul>
-<li>The offset table uses 32-bit entries (4 bytes each).</li>
-<li>rax holds the random enum variant (0–31).</li>
-<li>Multiplying rax by 4 gives the byte offset for the correct entry.</li>
-<li>MOVSXD rdx, [rcx + rax*4] loads the 32-bit offset for the variant and sign-extends it to 64-bit.</li>
-<li>This offset is relative to the base of the string table, so adding rdx + rcx produces the absolute string address.</li>
+<li>The user double-clicks the <code>.exe</code> file icon in <strong>Windows Explorer</strong>.</li>
+<li>Windows Explorer interprets this as a request to <strong>“open” the file using the default verb</strong>.</li>
+<li>Internally, Explorer calls the <code>ShellExecuteEx</code> API to handle the action:</li>
 </ul>
-<p>[rcx + rax*8]</p>
-<ul>
-<li>The pointer table uses 64-bit entries (8 bytes each).</li>
-<li>Again, rax is the variant index.</li>
-<li>Multiplying by 8 gives the byte offset of the correct pointer.</li>
-<li>MOV rax, [rcx + rax*8] loads the full 64-bit pointer directly, no sign-extension needed.</li>
-</ul>
-<pre><code class="language-x86asm">lea rax, [rbp + local_30]
-mov [rbp + local_40], rax
-lea rax, [LAB_140001030]
-mov [rbp + local_38], rax
-lea rax, [DAT_CONST_1]
-mov [rbp + local_70], rax
-mov [rbp + local_68], 2
-mov [rbp + local_50], 0
-lea rax, [rbp + local_40]
-mov [rbp + local_60], rax
-mov [rbp + local_58], 1
-lea rcx, [rbp + local_70]
-call std::io::stdio::_print
+<h3 id="registry"><a class="header" href="#registry">Registry</a></h3>
+<pre><code>Computer\HKEY_CLASSES_ROOT\exefile
+FriendlyTypeName @%SystemRoot%\System32\shell32.dll,-10156
 </code></pre>
-<p>Prepares arguments and calls _print to output the creature name.</p>
-<pre><code class="language-x86asm">mov rax, [rbp + local_20]
-dec [rax]
-jz SHORT LAB_DROP
-add rsp, 0x88
-pop rsi
-pop rbp
-ret
-mov rax, [rbp + local_20]
+<h3 id="api"><a class="header" href="#api">Api</a></h3>
+<pre><code class="language-c">ShellExecuteEx(&amp;sei);
 </code></pre>
-<p>Loads the pointer to the ThreadRng instance, which is stored in local_20.</p>
-<p><code>dec [rax]</code></p>
-<p>Decrements the reference count of the ThreadRng.
-ThreadRng is behind an Rc (reference-counted smart pointer).</p>
-<p><code>jz SHORT LAB_DROP</code></p>
-<pre><code class="language-x86asm">LAB_DROP:
-lea rcx, [rbp + local_20]
-call alloc::rc::Rc&lt;T,A&gt;::drop_slow
+<pre><code class="language-cpp">typedef struct _SHELLEXECUTEINFOA {
+  DWORD     cbSize;
+  ULONG     fMask;
+  HWND      hwnd;
+  LPCSTR    lpVerb;
+  LPCSTR    lpFile;
+  LPCSTR    lpParameters;
+  LPCSTR    lpDirectory;
+  int       nShow;
+  HINSTANCE hInstApp;
+  void      *lpIDList;
+  LPCSTR    lpClass;
+  HKEY      hkeyClass;
+  DWORD     dwHotKey;
+  union {
+    HANDLE hIcon;
+    HANDLE hMonitor;
+  } DUMMYUNIONNAME;
+  HANDLE    hProcess;
+} SHELLEXECUTEINFOA, *LPSHELLEXECUTEINFOA;
 </code></pre>
-<p>If the reference count reached zero, jump to drop_slow to free the memory.
-If not zero, skip and just clean the stack.</p>
-<p><code>add rsp, 0x88; pop rsi; pop rbp; ret</code></p>
-<p>Standard stack cleanup and return from main if the RNG instance is still alive (ref count &gt; 0).</p>
+<h3 id="editflags"><a class="header" href="#editflags">EditFlags</a></h3>
+<p>EditFlags for <code>exefile</code></p>
+<pre><code>38 07 00 00
+</code></pre>
+<pre><code>3	0x08	FTA_NoEdit	Cannot rename in Explorer
+4	0x10	FTA_NoRemove	Cannot delete
+5	0x20	FTA_NoNewVerb	Hidden from “New” menu
+8	0x100	FTA_NoEditDesc	Cannot edit description
+9	0x200	FTA_NoEditIcon	Cannot edit icon
+10	0x400	FTA_NoEditDflt	Cannot edit default verb
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../exercises/6-calling-conventions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../misc/loader.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../exercises/8-tauri.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -290,13 +240,10 @@ If not zero, skip and just clean the stack.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../exercises/6-calling-conventions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../misc/loader.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../exercises/8-tauri.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>

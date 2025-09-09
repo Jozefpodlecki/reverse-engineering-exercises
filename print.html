@@ -1241,9 +1241,7 @@ EntryPoint (VA):          0x1400168A0
 <div style="break-before: page; page-break-before: always;"></div><p>This program generates a random creature variant and prints its name using a precomputed lookup table.
 The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.</p>
 <p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs">source</a></p>
-<pre><code>       
-```x86asm
-call rand::rngs::thread::rng
+<pre><code class="language-x86asm">call rand::rngs::thread::rng
 mov rsi, rax
 mov [rbp+local_20], rax
 </code></pre>
@@ -1333,7 +1331,227 @@ call alloc::rc::Rc&lt;T,A&gt;::drop_slow
 If not zero, skip and just clean the stack.</p>
 <p><code>add rsp, 0x88; pop rsi; pop rbp; ret</code></p>
 <p>Standard stack cleanup and return from main if the RNG instance is still alive (ref count &gt; 0).</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="8-tauri"><a class="header" href="#8-tauri">8-tauri</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><p>This exercise tauri app template.</p>
+<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/tauri/src-tauri/src/lib.rs">source</a></p>
+<p><code>tauri::plugin::Builder&lt;R,C&gt;::new</code>
+<code>_ZN5tauri6plugin20Builder$LT$R$C$C$GT$3new</code></p>
+<pre><code class="language-x86asm">140096e10 e8 5b 4d 4f 00 CALL std::hash::random::impl$0::new::KEYS::constant
+140096e15 49 89 c6        MOV R14,RAX
+140096e18 80 78 10 01     CMP byte ptr [RAX+0x10],0x1
+</code></pre>
+<ul>
+<li>Part of HashMap/FxHasher initialization.</li>
+<li>Returns a pointer (RAX → R14) to the random seed/keys used internally by the plugin builder.</li>
+</ul>
+<pre><code class="language-x86asm">140096e22 49 8b 06        MOV RAX,qword ptr [R14]
+140096e25 49 8b 56 08     MOV RDX,qword ptr [R14+0x8]
+140096e29 48 8d 48 01     LEA RCX,[RAX+1]
+140096e2d 49 89 0e        MOV qword ptr [R14],RCX
+</code></pre>
+<ul>
+<li>Increments an internal counter stored in the random::KEYS structure.</li>
+<li>Likely used to ensure unique identifiers for each plugin instance.</li>
+</ul>
+<p><code>_ZN83_$LT$tauri_runtime_wry..Wry$LT$T$GT$$u20$_&lt;&gt;::run</code></p>
+<pre><code>1400fc4a0 MOV RSI, qword ptr [RCX + 0x50]
+1400fc4a4 INC.LOCK qword ptr [RSI]
+1400fc4a8 JLE LAB_1400fc4c8
+</code></pre>
+<ul>
+<li>Loads a pointer from the object (RCX points to self).</li>
+<li>Atomically increments the value pointed to by that pointer.</li>
+<li>Jumps if less than or equal to zero (JLE) to LAB_1400fc4c8.</li>
+</ul>
+<pre><code class="language-x86asm">1400fc4aa MOV RDI, qword ptr [RCX + 0x18]
+1400fc4ae INC.LOCK qword ptr [RDI]
+1400fc4b2 JLE LAB_1400fc4c8
+
+1400fc4b4 MOV RBX, qword ptr [RCX + 0x48]
+1400fc4b8 INC.LOCK qword ptr [RBX]
+1400fc4bc JLE LAB_1400fc4c8
+
+1400fc4be MOV RAX, qword ptr [RCX + 0x58]
+1400fc4c2 INC.LOCK qword ptr [RAX]
+1400fc4c6 JG LAB_1400fc4ca
+</code></pre>
+<ul>
+<li>Each load gets a pointer from the struct and performs an atomic increment.</li>
+<li>If any of these increments result in &lt;= 0, the code jumps to a UD2 instruction (illegal instruction) at LAB_1400fc4c8.</li>
+<li>The last increment uses JG (jump if greater) to continue normal execution.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="misc"><a class="header" href="#misc">Misc</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><pre><code>C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um
+</code></pre>
+<p><code>ntdll.LdrGetProcedureAddressForCaller</code></p>
+<ul>
+<li>Internal loader function that resolves function pointers in DLLs.</li>
+<li>Equivalent to GetProcAddress, but with extra security / caller tracking.</li>
+<li>Used during import table processing or when dynamic function lookups occur.</li>
+</ul>
+<p><code>ntdll.RtlDeleteElementGenericTableAvlEx</code></p>
+<ul>
+<li>Deletes an element from an AVL-based generic table.</li>
+<li>Windows often uses these tables internally to track loaded modules, TLS slots, or runtime resources.</li>
+<li>Seeing this in a loader trace usually indicates cleanup or deallocation during module setup or teardown.</li>
+</ul>
+<p><code>kernelbase.GetApplicationRestartSettings</code></p>
+<ul>
+<li>Retrieves settings related to Windows application restart / recovery.</li>
+<li>Called internally during process initialization to see if the OS wants to auto-restart a crashed application.</li>
+</ul>
+<p><code>ntdll.RtlEncodeRemotePointer</code></p>
+<ul>
+<li>Obfuscates or encodes pointers that may be shared across processes or stored in global tables.</li>
+<li>Prevents accidental or malicious misuse of raw pointers (security measure).</li>
+<li>Usually happens after resolving function addresses or storing thread-local data.</li>
+</ul>
+<p><code>ntdll.RtlAnsiStringToUnicodeString</code></p>
+<ul>
+<li>Converts an ANSI string to a Unicode (UTF-16) string.</li>
+<li>Used during DLL loading or manifest/registry string parsing, because many Windows APIs expect Unicode internally.</li>
+</ul>
+<p><code>ntdll.RtlAcquireSRWLockExclusive</code></p>
+<ul>
+<li>Acquires a Slim Reader/Writer lock exclusively.</li>
+<li>Prevents multiple threads from modifying shared resources at the same time.</li>
+<li>Often used in runtime and loader code for:
+-- AVL tables
+-- Loader metadata
+-- Heap or TLS structures</li>
+</ul>
+<p><code>ntdll.RtlUTF8ToUnicode</code></p>
+<ul>
+<li>Converts a UTF-8 string to Unicode (UTF-16).</li>
+</ul>
+<p><code>ntdll.TpCallbackMayRunLong</code></p>
+<ul>
+<li>Part of Windows Thread Pool (Tp) API.</li>
+<li>Called internally when a thread pool callback might take a long time to execute.</li>
+<li>The runtime uses this to decide whether to inject additional threads or adjust scheduling.</li>
+</ul>
+<p><code>RtlInsertElementGenericTableFullAvl</code></p>
+<ul>
+<li>Inserts an element into a generic AVL tree in memory.</li>
+<li>The “FullAvl” version handles both insertion and balancing automatically.</li>
+</ul>
+<p><code>ntdll.RtlRaiseStatus</code></p>
+<ul>
+<li>Raises a Windows NTSTATUS exception.</li>
+<li>Converts a status code (like an error or system signal) into an exception that can be caught by SEH handlers.</li>
+</ul>
+<p><code>ntdll.RtlUserThreadStart</code></p>
+<ul>
+<li>Entry point for new user-mode threads.</li>
+<li>Windows sets up a thread so that when it begins execution, it runs RtlUserThreadStart.</li>
+<li>Responsible for:
+-- Setting up thread-local storage (TLS)
+-- Calling your thread function (LPTHREAD_START_ROUTINE)
+-- Handling structured exception handling (SEH) for the thread</li>
+</ul>
+<p><code>kernel32.BaseThreadInitThunk</code></p>
+<ul>
+<li>Called by the OS when a thread starts.</li>
+<li>Sets up the thread environment before calling RtlUserThreadStart.</li>
+<li>Handles:
+-- Register initialization
+-- Stack setup
+-- Exception frame setup</li>
+</ul>
+<p><code>ntdll.NtReleaseWorkerFactoryWorker</code>
+<code>ntdll.RtlGetReturnAddressHijackTarget</code>
+<code>ntdll.ZwWaitForWorkViaWorkerFactory</code>
+<code>ntdll.NtWaitForSingleObject</code></p>
+<p><code>LdrpInitialize</code>
+<code>LdrpInitializeProcess</code>
+<code>LdtpInitializeThread</code>
+<code>TestAlert</code>
+<code>NtContinue</code></p>
+<h3 id="ntdllntmapviewofsection"><a class="header" href="#ntdllntmapviewofsection"><code>ntdll.NtMapViewOfSection</code></a></h3>
+<pre><code class="language-c">NTSYSAPI NTSTATUS ZwMapViewOfSection(
+  [in]                HANDLE          SectionHandle,
+  [in]                HANDLE          ProcessHandle,
+  [in, out]           PVOID           *BaseAddress,
+  [in]                ULONG_PTR       ZeroBits,
+  [in]                SIZE_T          CommitSize,
+  [in, out, optional] PLARGE_INTEGER  SectionOffset,
+  [in, out]           PSIZE_T         ViewSize,
+  [in]                SECTION_INHERIT InheritDisposition,
+  [in]                ULONG           AllocationType,
+  [in]                ULONG           Win32Protect
+);
+</code></pre>
+<p>Maps a view of a section into the virtual address space of a subject process.</p>
+<h3 id="ntdllldrgetdllhandlebymapping"><a class="header" href="#ntdllldrgetdllhandlebymapping"><code>ntdll.LdrGetDllHandleByMapping</code></a></h3>
+<p>Given a mapped memory region, tries to resolve if it corresponds to a loaded DLL.</p>
+<p>Helps the loader avoid re-loading the same module.</p>
+<h3 id="ntdllrtldeactivateactivationcontextunsafefast"><a class="header" href="#ntdllrtldeactivateactivationcontextunsafefast"><code>ntdll.RtlDeactivateActivationContextUnsafeFast</code></a></h3>
+<p>Cleans up activation contexts (side-by-side assemblies, manifests, COM contexts).</p>
+<p>You see this around DLL load/unload sequences.</p>
+<p>"UnsafeFast" = lightweight version without full safety checks.</p>
+<h3 id="ntdllldrgetdllhandleex"><a class="header" href="#ntdllldrgetdllhandleex"><code>ntdll.LdrGetDllHandleEx</code></a></h3>
+<p>Higher-level helper for finding a DLL handle by name or characteristics.</p>
+<p>Often used before LdrLoadDll.</p>
+<h3 id="ntdllldrloaddll"><a class="header" href="#ntdllldrloaddll"><code>ntdll.LdrLoadDll</code></a></h3>
+<p>Main function to load a DLL (after checking handles/mappings).</p>
+<p>Calls NtMapViewOfSection internally if the DLL isn’t already mapped.</p>
+<p>Also processes imports, TLS callbacks, and entrypoints (DllMain).</p>
+<h3 id="ntdllrtlfindclearbitsandset"><a class="header" href="#ntdllrtlfindclearbitsandset"><code>ntdll.RtlFindClearBitsAndSet</code></a></h3>
+<p>A low-level runtime routine that manipulates a bitmap (finds a sequence of 0s, flips them to 1s).</p>
+<p>Used internally by the loader and memory manager to track free/used slots (e.g., TLS slots, heap allocations).</p>
+<h3 id="ntdlletweventwritenoregistration"><a class="header" href="#ntdlletweventwritenoregistration"><code>ntdll.EtwEventWriteNoRegistration</code></a></h3>
+<p>Event Tracing for Windows (ETW).</p>
+<p>Writes events even if no provider is registered.</p>
+<p>Usually system bookkeeping — not critical to program flow, but shows the loader/system is logging activity.</p>
+<h3 id="ntdllldrinitializethunk"><a class="header" href="#ntdllldrinitializethunk"><code>ntdll.LdrInitializeThunk</code></a></h3>
+<p>Runs when a new thread starts (especially the first thread of a process).
+Final loader setup: initializes loader state, processes TLS, resolves imports.
+Then jumps to program’s real entrypoint (e.g., main, WinMain, or DllMain for DLL entry).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="what-happens-when-you-double-click-an-executable-in-windows"><a class="header" href="#what-happens-when-you-double-click-an-executable-in-windows">What Happens When You Double-Click an Executable in Windows</a></h1>
+<h2 id="1-user-action-and-shell-event"><a class="header" href="#1-user-action-and-shell-event">1. User Action and Shell Event</a></h2>
+<ul>
+<li>The user double-clicks the <code>.exe</code> file icon in <strong>Windows Explorer</strong>.</li>
+<li>Windows Explorer interprets this as a request to <strong>“open” the file using the default verb</strong>.</li>
+<li>Internally, Explorer calls the <code>ShellExecuteEx</code> API to handle the action:</li>
+</ul>
+<h3 id="registry"><a class="header" href="#registry">Registry</a></h3>
+<pre><code>Computer\HKEY_CLASSES_ROOT\exefile
+FriendlyTypeName @%SystemRoot%\System32\shell32.dll,-10156
+</code></pre>
+<h3 id="api"><a class="header" href="#api">Api</a></h3>
+<pre><code class="language-c">ShellExecuteEx(&amp;sei);
+</code></pre>
+<pre><code class="language-cpp">typedef struct _SHELLEXECUTEINFOA {
+  DWORD     cbSize;
+  ULONG     fMask;
+  HWND      hwnd;
+  LPCSTR    lpVerb;
+  LPCSTR    lpFile;
+  LPCSTR    lpParameters;
+  LPCSTR    lpDirectory;
+  int       nShow;
+  HINSTANCE hInstApp;
+  void      *lpIDList;
+  LPCSTR    lpClass;
+  HKEY      hkeyClass;
+  DWORD     dwHotKey;
+  union {
+    HANDLE hIcon;
+    HANDLE hMonitor;
+  } DUMMYUNIONNAME;
+  HANDLE    hProcess;
+} SHELLEXECUTEINFOA, *LPSHELLEXECUTEINFOA;
+</code></pre>
+<h3 id="editflags"><a class="header" href="#editflags">EditFlags</a></h3>
+<p>EditFlags for <code>exefile</code></p>
+<pre><code>38 07 00 00
+</code></pre>
+<pre><code>3	0x08	FTA_NoEdit	Cannot rename in Explorer
+4	0x10	FTA_NoRemove	Cannot delete
+5	0x20	FTA_NoNewVerb	Hidden from “New” menu
+8	0x100	FTA_NoEditDesc	Cannot edit description
+9	0x200	FTA_NoEditIcon	Cannot edit icon
+10	0x400	FTA_NoEditDflt	Cannot edit default verb
+</code></pre>
 
                     </main>
 

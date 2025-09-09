@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>7-enums - Reverse Engineering Exercises</title>
+        <title>Loader - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -178,109 +178,142 @@
 
                 <div id="content" class="content">
                     <main>
-                        <p>This program generates a random creature variant and prints its name using a precomputed lookup table.
-The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs">source</a></p>
-<pre><code class="language-x86asm">call rand::rngs::thread::rng
-mov rsi, rax
-mov [rbp+local_20], rax
+                        <pre><code>C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um
 </code></pre>
-<p>Initializes ThreadRng and stores its pointer in rsi and a local variable.</p>
-<pre><code class="language-x86asm">mov rcx, [rsi + 0x150]
-cmp rcx, 0x40
-jc SHORT LAB_BUFFER_OK
-</code></pre>
-<p>Loads the RNG buffer index and checks if it needs a refill.</p>
-<pre><code class="language-x86asm">lea r8, [rax + 0x10]
-add rax, 0x110
-mov rcx, [rsi + 0x148]
-test rcx, rcx
-jle SHORT LAB_REPLENISH_FALLBACK
-add rcx, -0x100
-mov [rsi + 0x148], rcx
-mov rcx, rax
-mov edx, 0x6
-call rand_chacha::guts::refill_wide
-jmp SHORT LAB_CONTINUE
-</code></pre>
-<pre><code class="language-x86asm">LAB_REPLENISH_FALLBACK:
-mov rcx, rax
-mov rdx, r8
-call FUN_140001050
-</code></pre>
-<p>Refills the ChaCha RNG buffer if exhausted.
-Fallback path for insufficient buffer, calls internal RNG helper.</p>
-<pre><code class="language-x86asm">lea rcx, [DAT_STRING_OFFSET_TABLE]
-movsxd rdx, [rcx + rax*4]
-add rdx, rcx
-lea rcx, [DAT_STRING_PTR_TABLE]
-mov rax, [rcx + rax*8]
-mov [rbp + local_30], rdx
-mov [rbp + local_28], rax
-</code></pre>
-<p>Maps the enum variant to a string pointer using precomputed offset and pointer tables.</p>
-<p>[rcx + rax*4]</p>
+<p><code>ntdll.LdrGetProcedureAddressForCaller</code></p>
 <ul>
-<li>The offset table uses 32-bit entries (4 bytes each).</li>
-<li>rax holds the random enum variant (0–31).</li>
-<li>Multiplying rax by 4 gives the byte offset for the correct entry.</li>
-<li>MOVSXD rdx, [rcx + rax*4] loads the 32-bit offset for the variant and sign-extends it to 64-bit.</li>
-<li>This offset is relative to the base of the string table, so adding rdx + rcx produces the absolute string address.</li>
+<li>Internal loader function that resolves function pointers in DLLs.</li>
+<li>Equivalent to GetProcAddress, but with extra security / caller tracking.</li>
+<li>Used during import table processing or when dynamic function lookups occur.</li>
 </ul>
-<p>[rcx + rax*8]</p>
+<p><code>ntdll.RtlDeleteElementGenericTableAvlEx</code></p>
 <ul>
-<li>The pointer table uses 64-bit entries (8 bytes each).</li>
-<li>Again, rax is the variant index.</li>
-<li>Multiplying by 8 gives the byte offset of the correct pointer.</li>
-<li>MOV rax, [rcx + rax*8] loads the full 64-bit pointer directly, no sign-extension needed.</li>
+<li>Deletes an element from an AVL-based generic table.</li>
+<li>Windows often uses these tables internally to track loaded modules, TLS slots, or runtime resources.</li>
+<li>Seeing this in a loader trace usually indicates cleanup or deallocation during module setup or teardown.</li>
 </ul>
-<pre><code class="language-x86asm">lea rax, [rbp + local_30]
-mov [rbp + local_40], rax
-lea rax, [LAB_140001030]
-mov [rbp + local_38], rax
-lea rax, [DAT_CONST_1]
-mov [rbp + local_70], rax
-mov [rbp + local_68], 2
-mov [rbp + local_50], 0
-lea rax, [rbp + local_40]
-mov [rbp + local_60], rax
-mov [rbp + local_58], 1
-lea rcx, [rbp + local_70]
-call std::io::stdio::_print
+<p><code>kernelbase.GetApplicationRestartSettings</code></p>
+<ul>
+<li>Retrieves settings related to Windows application restart / recovery.</li>
+<li>Called internally during process initialization to see if the OS wants to auto-restart a crashed application.</li>
+</ul>
+<p><code>ntdll.RtlEncodeRemotePointer</code></p>
+<ul>
+<li>Obfuscates or encodes pointers that may be shared across processes or stored in global tables.</li>
+<li>Prevents accidental or malicious misuse of raw pointers (security measure).</li>
+<li>Usually happens after resolving function addresses or storing thread-local data.</li>
+</ul>
+<p><code>ntdll.RtlAnsiStringToUnicodeString</code></p>
+<ul>
+<li>Converts an ANSI string to a Unicode (UTF-16) string.</li>
+<li>Used during DLL loading or manifest/registry string parsing, because many Windows APIs expect Unicode internally.</li>
+</ul>
+<p><code>ntdll.RtlAcquireSRWLockExclusive</code></p>
+<ul>
+<li>Acquires a Slim Reader/Writer lock exclusively.</li>
+<li>Prevents multiple threads from modifying shared resources at the same time.</li>
+<li>Often used in runtime and loader code for:
+-- AVL tables
+-- Loader metadata
+-- Heap or TLS structures</li>
+</ul>
+<p><code>ntdll.RtlUTF8ToUnicode</code></p>
+<ul>
+<li>Converts a UTF-8 string to Unicode (UTF-16).</li>
+</ul>
+<p><code>ntdll.TpCallbackMayRunLong</code></p>
+<ul>
+<li>Part of Windows Thread Pool (Tp) API.</li>
+<li>Called internally when a thread pool callback might take a long time to execute.</li>
+<li>The runtime uses this to decide whether to inject additional threads or adjust scheduling.</li>
+</ul>
+<p><code>RtlInsertElementGenericTableFullAvl</code></p>
+<ul>
+<li>Inserts an element into a generic AVL tree in memory.</li>
+<li>The “FullAvl” version handles both insertion and balancing automatically.</li>
+</ul>
+<p><code>ntdll.RtlRaiseStatus</code></p>
+<ul>
+<li>Raises a Windows NTSTATUS exception.</li>
+<li>Converts a status code (like an error or system signal) into an exception that can be caught by SEH handlers.</li>
+</ul>
+<p><code>ntdll.RtlUserThreadStart</code></p>
+<ul>
+<li>Entry point for new user-mode threads.</li>
+<li>Windows sets up a thread so that when it begins execution, it runs RtlUserThreadStart.</li>
+<li>Responsible for:
+-- Setting up thread-local storage (TLS)
+-- Calling your thread function (LPTHREAD_START_ROUTINE)
+-- Handling structured exception handling (SEH) for the thread</li>
+</ul>
+<p><code>kernel32.BaseThreadInitThunk</code></p>
+<ul>
+<li>Called by the OS when a thread starts.</li>
+<li>Sets up the thread environment before calling RtlUserThreadStart.</li>
+<li>Handles:
+-- Register initialization
+-- Stack setup
+-- Exception frame setup</li>
+</ul>
+<p><code>ntdll.NtReleaseWorkerFactoryWorker</code>
+<code>ntdll.RtlGetReturnAddressHijackTarget</code>
+<code>ntdll.ZwWaitForWorkViaWorkerFactory</code>
+<code>ntdll.NtWaitForSingleObject</code></p>
+<p><code>LdrpInitialize</code>
+<code>LdrpInitializeProcess</code>
+<code>LdtpInitializeThread</code>
+<code>TestAlert</code>
+<code>NtContinue</code></p>
+<h3 id="ntdllntmapviewofsection"><a class="header" href="#ntdllntmapviewofsection"><code>ntdll.NtMapViewOfSection</code></a></h3>
+<pre><code class="language-c">NTSYSAPI NTSTATUS ZwMapViewOfSection(
+  [in]                HANDLE          SectionHandle,
+  [in]                HANDLE          ProcessHandle,
+  [in, out]           PVOID           *BaseAddress,
+  [in]                ULONG_PTR       ZeroBits,
+  [in]                SIZE_T          CommitSize,
+  [in, out, optional] PLARGE_INTEGER  SectionOffset,
+  [in, out]           PSIZE_T         ViewSize,
+  [in]                SECTION_INHERIT InheritDisposition,
+  [in]                ULONG           AllocationType,
+  [in]                ULONG           Win32Protect
+);
 </code></pre>
-<p>Prepares arguments and calls _print to output the creature name.</p>
-<pre><code class="language-x86asm">mov rax, [rbp + local_20]
-dec [rax]
-jz SHORT LAB_DROP
-add rsp, 0x88
-pop rsi
-pop rbp
-ret
-mov rax, [rbp + local_20]
-</code></pre>
-<p>Loads the pointer to the ThreadRng instance, which is stored in local_20.</p>
-<p><code>dec [rax]</code></p>
-<p>Decrements the reference count of the ThreadRng.
-ThreadRng is behind an Rc (reference-counted smart pointer).</p>
-<p><code>jz SHORT LAB_DROP</code></p>
-<pre><code class="language-x86asm">LAB_DROP:
-lea rcx, [rbp + local_20]
-call alloc::rc::Rc&lt;T,A&gt;::drop_slow
-</code></pre>
-<p>If the reference count reached zero, jump to drop_slow to free the memory.
-If not zero, skip and just clean the stack.</p>
-<p><code>add rsp, 0x88; pop rsi; pop rbp; ret</code></p>
-<p>Standard stack cleanup and return from main if the RNG instance is still alive (ref count &gt; 0).</p>
+<p>Maps a view of a section into the virtual address space of a subject process.</p>
+<h3 id="ntdllldrgetdllhandlebymapping"><a class="header" href="#ntdllldrgetdllhandlebymapping"><code>ntdll.LdrGetDllHandleByMapping</code></a></h3>
+<p>Given a mapped memory region, tries to resolve if it corresponds to a loaded DLL.</p>
+<p>Helps the loader avoid re-loading the same module.</p>
+<h3 id="ntdllrtldeactivateactivationcontextunsafefast"><a class="header" href="#ntdllrtldeactivateactivationcontextunsafefast"><code>ntdll.RtlDeactivateActivationContextUnsafeFast</code></a></h3>
+<p>Cleans up activation contexts (side-by-side assemblies, manifests, COM contexts).</p>
+<p>You see this around DLL load/unload sequences.</p>
+<p>"UnsafeFast" = lightweight version without full safety checks.</p>
+<h3 id="ntdllldrgetdllhandleex"><a class="header" href="#ntdllldrgetdllhandleex"><code>ntdll.LdrGetDllHandleEx</code></a></h3>
+<p>Higher-level helper for finding a DLL handle by name or characteristics.</p>
+<p>Often used before LdrLoadDll.</p>
+<h3 id="ntdllldrloaddll"><a class="header" href="#ntdllldrloaddll"><code>ntdll.LdrLoadDll</code></a></h3>
+<p>Main function to load a DLL (after checking handles/mappings).</p>
+<p>Calls NtMapViewOfSection internally if the DLL isn’t already mapped.</p>
+<p>Also processes imports, TLS callbacks, and entrypoints (DllMain).</p>
+<h3 id="ntdllrtlfindclearbitsandset"><a class="header" href="#ntdllrtlfindclearbitsandset"><code>ntdll.RtlFindClearBitsAndSet</code></a></h3>
+<p>A low-level runtime routine that manipulates a bitmap (finds a sequence of 0s, flips them to 1s).</p>
+<p>Used internally by the loader and memory manager to track free/used slots (e.g., TLS slots, heap allocations).</p>
+<h3 id="ntdlletweventwritenoregistration"><a class="header" href="#ntdlletweventwritenoregistration"><code>ntdll.EtwEventWriteNoRegistration</code></a></h3>
+<p>Event Tracing for Windows (ETW).</p>
+<p>Writes events even if no provider is registered.</p>
+<p>Usually system bookkeeping — not critical to program flow, but shows the loader/system is logging activity.</p>
+<h3 id="ntdllldrinitializethunk"><a class="header" href="#ntdllldrinitializethunk"><code>ntdll.LdrInitializeThunk</code></a></h3>
+<p>Runs when a new thread starts (especially the first thread of a process).
+Final loader setup: initializes loader state, processes TLS, resolves imports.
+Then jumps to program’s real entrypoint (e.g., main, WinMain, or DllMain for DLL entry).</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../exercises/6-calling-conventions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../misc.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../exercises/8-tauri.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../misc/shell.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -290,11 +323,11 @@ If not zero, skip and just clean the stack.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../exercises/6-calling-conventions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../misc.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../exercises/8-tauri.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../misc/shell.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

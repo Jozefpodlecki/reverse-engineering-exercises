@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>7-enums - Reverse Engineering Exercises</title>
+        <title>Misc - Reverse Engineering Exercises</title>
 
 
         <!-- Custom HTML head -->
@@ -12,34 +12,34 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="../favicon.svg">
-        <link rel="shortcut icon" href="../favicon.png">
-        <link rel="stylesheet" href="../css/variables.css">
-        <link rel="stylesheet" href="../css/general.css">
-        <link rel="stylesheet" href="../css/chrome.css">
-        <link rel="stylesheet" href="../css/print.css" media="print">
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="../fonts/fonts.css">
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
 
         <!-- Provide site root and default themes to javascript -->
         <script>
-            const path_to_root = "../";
+            const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex.js";
+            window.path_to_searchindex_js = "searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc.js"></script>
+        <script src="toc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -106,7 +106,7 @@
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
-                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -141,7 +141,7 @@
                     <h1 class="menu-title">Reverse Engineering Exercises</h1>
 
                     <div class="right-buttons">
-                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                         <a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises" title="Git repository" aria-label="Git repository">
@@ -178,109 +178,17 @@
 
                 <div id="content" class="content">
                     <main>
-                        <p>This program generates a random creature variant and prints its name using a precomputed lookup table.
-The Rust enum is transmuted from a random byte, and a match on the enum is replaced by a table-based string lookup in release mode.</p>
-<p><a href="https://github.com/Jozefpodlecki/reverse-engineering-exercises/blob/main/exercises/enums/src/main.rs">source</a></p>
-<pre><code class="language-x86asm">call rand::rngs::thread::rng
-mov rsi, rax
-mov [rbp+local_20], rax
-</code></pre>
-<p>Initializes ThreadRng and stores its pointer in rsi and a local variable.</p>
-<pre><code class="language-x86asm">mov rcx, [rsi + 0x150]
-cmp rcx, 0x40
-jc SHORT LAB_BUFFER_OK
-</code></pre>
-<p>Loads the RNG buffer index and checks if it needs a refill.</p>
-<pre><code class="language-x86asm">lea r8, [rax + 0x10]
-add rax, 0x110
-mov rcx, [rsi + 0x148]
-test rcx, rcx
-jle SHORT LAB_REPLENISH_FALLBACK
-add rcx, -0x100
-mov [rsi + 0x148], rcx
-mov rcx, rax
-mov edx, 0x6
-call rand_chacha::guts::refill_wide
-jmp SHORT LAB_CONTINUE
-</code></pre>
-<pre><code class="language-x86asm">LAB_REPLENISH_FALLBACK:
-mov rcx, rax
-mov rdx, r8
-call FUN_140001050
-</code></pre>
-<p>Refills the ChaCha RNG buffer if exhausted.
-Fallback path for insufficient buffer, calls internal RNG helper.</p>
-<pre><code class="language-x86asm">lea rcx, [DAT_STRING_OFFSET_TABLE]
-movsxd rdx, [rcx + rax*4]
-add rdx, rcx
-lea rcx, [DAT_STRING_PTR_TABLE]
-mov rax, [rcx + rax*8]
-mov [rbp + local_30], rdx
-mov [rbp + local_28], rax
-</code></pre>
-<p>Maps the enum variant to a string pointer using precomputed offset and pointer tables.</p>
-<p>[rcx + rax*4]</p>
-<ul>
-<li>The offset table uses 32-bit entries (4 bytes each).</li>
-<li>rax holds the random enum variant (0–31).</li>
-<li>Multiplying rax by 4 gives the byte offset for the correct entry.</li>
-<li>MOVSXD rdx, [rcx + rax*4] loads the 32-bit offset for the variant and sign-extends it to 64-bit.</li>
-<li>This offset is relative to the base of the string table, so adding rdx + rcx produces the absolute string address.</li>
-</ul>
-<p>[rcx + rax*8]</p>
-<ul>
-<li>The pointer table uses 64-bit entries (8 bytes each).</li>
-<li>Again, rax is the variant index.</li>
-<li>Multiplying by 8 gives the byte offset of the correct pointer.</li>
-<li>MOV rax, [rcx + rax*8] loads the full 64-bit pointer directly, no sign-extension needed.</li>
-</ul>
-<pre><code class="language-x86asm">lea rax, [rbp + local_30]
-mov [rbp + local_40], rax
-lea rax, [LAB_140001030]
-mov [rbp + local_38], rax
-lea rax, [DAT_CONST_1]
-mov [rbp + local_70], rax
-mov [rbp + local_68], 2
-mov [rbp + local_50], 0
-lea rax, [rbp + local_40]
-mov [rbp + local_60], rax
-mov [rbp + local_58], 1
-lea rcx, [rbp + local_70]
-call std::io::stdio::_print
-</code></pre>
-<p>Prepares arguments and calls _print to output the creature name.</p>
-<pre><code class="language-x86asm">mov rax, [rbp + local_20]
-dec [rax]
-jz SHORT LAB_DROP
-add rsp, 0x88
-pop rsi
-pop rbp
-ret
-mov rax, [rbp + local_20]
-</code></pre>
-<p>Loads the pointer to the ThreadRng instance, which is stored in local_20.</p>
-<p><code>dec [rax]</code></p>
-<p>Decrements the reference count of the ThreadRng.
-ThreadRng is behind an Rc (reference-counted smart pointer).</p>
-<p><code>jz SHORT LAB_DROP</code></p>
-<pre><code class="language-x86asm">LAB_DROP:
-lea rcx, [rbp + local_20]
-call alloc::rc::Rc&lt;T,A&gt;::drop_slow
-</code></pre>
-<p>If the reference count reached zero, jump to drop_slow to free the memory.
-If not zero, skip and just clean the stack.</p>
-<p><code>add rsp, 0x88; pop rsi; pop rbp; ret</code></p>
-<p>Standard stack cleanup and return from main if the RNG instance is still alive (ref count &gt; 0).</p>
+                        <h1 id="misc"><a class="header" href="#misc">Misc</a></h1>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../exercises/6-calling-conventions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="exercises/8-tauri.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../exercises/8-tauri.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="misc/loader.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -290,11 +198,11 @@ If not zero, skip and just clean the stack.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../exercises/6-calling-conventions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="exercises/8-tauri.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../exercises/8-tauri.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="misc/loader.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
@@ -309,13 +217,13 @@ If not zero, skip and just clean the stack.</p>
         </script>
 
 
-        <script src="../elasticlunr.min.js"></script>
-        <script src="../mark.min.js"></script>
-        <script src="../searcher.js"></script>
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
 
-        <script src="../clipboard.min.js"></script>
-        <script src="../highlight.js"></script>
-        <script src="../book.js"></script>
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
 
