@@ -9,6 +9,8 @@
 		"exercises/enums/Cargo.toml",
 		"exercises/tauri-app/src-tauri/Cargo.toml",
 		"exercises/thread/Cargo.toml",
+		"exercises/boxing/Cargo.toml",
+		"exercises/file-system/Cargo.toml",
 		"exercises/manual-std/Cargo.toml",
 		"tools/peanalyse/Cargo.toml",
 		"tools/pedump/Cargo.toml",

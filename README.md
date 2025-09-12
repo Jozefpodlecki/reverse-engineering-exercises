@@ -13,3 +13,4 @@
 - https://www.osronline.com/article.cfm%5Earticle=516.htm
 - https://www.bordergate.co.uk/import-address-tables/?utm_source=chatgpt.com
 - https://vrodxda.hatenablog.com/entry/2019/09/18/085454
+- https://fractalfir.github.io/generated_html/rustc_codegen_clr_v0_2_2.html
