@@ -55,7 +55,8 @@ pub struct OptionalHeader {
 pub struct Section {
     pub name: String,
     pub virtual_size: u32,
-    pub virtual_address: u32,
+    pub virtual_address_rva: u32,
+    pub virtual_address_va: u64,
     pub size_of_raw_data: u32,
     pub pointer_to_raw_data: u32,
     pub pointer_to_relocations: u32,

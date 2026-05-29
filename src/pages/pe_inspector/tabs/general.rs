@@ -46,7 +46,7 @@ pub fn general_tab(props: &GeneralTabProps) -> Html {
                                 html! {
                                     <tr data-section={section.name.clone()} class="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                                         <td class="px-2 py-2 font-mono text-zinc-300">{&section.name}</td>
-                                        <td class="px-2 py-2 font-mono text-zinc-300">{format!("0x{:X}", section.virtual_address)}</td>
+                                        <td class="px-2 py-2 font-mono text-zinc-300">{format!("0x{:X}", section.virtual_address_rva)}</td>
                                         <td class="px-2 py-2 font-mono text-zinc-300">{format!("0x{:X}", section.virtual_size)}</td>
                                         <td class="px-2 py-2 font-mono text-zinc-300">{format!("0x{:X}", section.size_of_raw_data)}</td>
                                         <td class="px-2 py-2 font-mono text-zinc-300">{format!("0x{:X}", section.pointer_to_raw_data)}</td>

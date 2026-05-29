@@ -1,5 +1,7 @@
+use std::{ops::Deref, rc::Rc};
+
 use pelite::pe64::{Pe, PeFile, imports::Import};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::pages::pe_inspector::types::*;
 
@@ -12,12 +14,60 @@ pub enum InspectorUiState {
     Error(String),
 }
 
+#[derive(Clone, PartialEq)]
+pub struct RcBytes(pub Rc<[u8]>);
+
+impl Default for RcBytes {
+    fn default() -> Self {
+        Self(Rc::from([]))
+    }
+}
+
+impl Deref for RcBytes {
+    type Target = [u8];
+    
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Vec<u8>> for RcBytes {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self(Rc::from(bytes))
+    }
+}
+
+impl From<&[u8]> for RcBytes {
+    fn from(bytes: &[u8]) -> Self {
+        Self(Rc::from(bytes))
+    }
+}
+
+impl Serialize for RcBytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for RcBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        Ok(RcBytes(Rc::from(bytes)))
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PeState {
     pub last_modified: f64,
     pub file_name: String,
     pub size: u64,
-    pub data: Box<[u8]>,
+    pub data: RcBytes,
 }
 
 #[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -144,6 +194,8 @@ impl ParsedPe {
     }
 
     fn extract_sections(file: &PeFile) -> Vec<Section> {
+        let image_base = file.optional_header().ImageBase;
+
         file.section_headers()
             .iter()
             .map(|section| Section {
@@ -152,7 +204,8 @@ impl ParsedPe {
                     Err(err) => hex::encode_upper(section.name_bytes()),
                 },
                 virtual_size: section.VirtualSize,
-                virtual_address: section.VirtualAddress,
+                virtual_address_rva: section.VirtualAddress,
+                virtual_address_va: image_base + section.VirtualAddress as u64,
                 size_of_raw_data: section.SizeOfRawData,
                 pointer_to_raw_data: section.PointerToRawData,
                 pointer_to_relocations: section.PointerToRelocations,

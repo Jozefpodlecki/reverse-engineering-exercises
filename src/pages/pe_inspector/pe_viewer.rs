@@ -1,8 +1,9 @@
 use yew::prelude::*;
 use yew_icons::{Icon, IconData};
 
+use crate::pages::pe_inspector::sections::SectionsTab;
 use crate::pages::pe_inspector::tabs::{
-    GeneralTab, SectionsTab, ImportsTab, ExportsTab, ExceptionsTab, RelocationsTab, ActiveTab, TabBar
+    GeneralTab, ImportsTab, ExportsTab, ExceptionsTab, RelocationsTab, ActiveTab, TabBar
 };
 use crate::pages::pe_inspector::context::PeContext;
 
@@ -45,7 +46,7 @@ pub fn pe_viewer(props: &PeViewerProps) -> Html {
             <GeneralTab state={context.raw.clone()} parsed={context.parsed.clone()} />
         },
         ActiveTab::Sections => html! {
-            <SectionsTab sections={context.parsed.sections.clone()} />
+            <SectionsTab sections={context.parsed.sections.clone()} raw_bytes={context.raw.data} />
         },
         ActiveTab::Imports => html! {
             <ImportsTab imports={context.parsed.imports.clone()} />
