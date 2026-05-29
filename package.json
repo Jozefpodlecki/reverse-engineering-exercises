@@ -1,0 +1,22 @@
+{
+  "name": "reverse-engineering-exercises",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "homepage": "https://github.com/Jozefpodlecki/reverse-engineering-exercises#readme",
+  "bugs": {
+    "url": "https://github.com/Jozefpodlecki/reverse-engineering-exercises/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jozefpodlecki/reverse-engineering-exercises.git"
+  },
+  "license": "ISC",
+  "author": "Jozef Podlecki",
+  "type": "commonjs",
+  "scripts": {},
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "tailwindcss": "^4.2.2"
+  }
+}

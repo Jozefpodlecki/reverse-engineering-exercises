@@ -1,5 +1,9 @@
 # Reverse Engineering Exercises
 
+![rustc](https://img.shields.io/badge/rustc-1.94.0-blue.svg)
+![wasm-bindgen](https://img.shields.io/badge/wasm--bindgen-0.2.114-blue.svg)
+![CI](https://github.com/Jozefpodlecki/lm-studio-api-rs/actions/workflows/ci.yml/badge.svg)
+
 [Docs](https://jozefpodlecki.dev/reverse-engineering-exercises/)
 
 # Resources
@@ -14,3 +18,4 @@
 - https://www.bordergate.co.uk/import-address-tables/?utm_source=chatgpt.com
 - https://vrodxda.hatenablog.com/entry/2019/09/18/085454
 - https://fractalfir.github.io/generated_html/rustc_codegen_clr_v0_2_2.html
+ 
