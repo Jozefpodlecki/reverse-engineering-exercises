@@ -6,6 +6,7 @@ mod app;
 mod services;
 mod models;
 mod pages;
+mod shared;
 mod route;
 
 use app::App;
