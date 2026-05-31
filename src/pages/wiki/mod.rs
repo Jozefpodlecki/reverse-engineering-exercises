@@ -1,9 +1,3 @@
-use yew::prelude::*;
-use yew_icons::{Icon, IconData};
-use yew_router::prelude::Link;
+mod view;
 
-#[function_component(Wiki)]
-pub fn wiki() -> Html {
-    html! {}
-}
-    
+pub use view::*;

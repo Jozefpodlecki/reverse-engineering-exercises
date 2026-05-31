@@ -1,9 +1,11 @@
-use yew::prelude::*;
-use yew_icons::{Icon, IconData};
-use yew_router::prelude::Link;
+mod types;
+mod filter;
+mod table;
+mod header;
+mod view;
 
-#[function_component(SystemCallTable)]
-pub fn system_call_table() -> Html {
-    html! {}
-}
-    
+pub use types::*;
+pub use filter::*;
+pub use header::*;
+pub use table::*;
+pub use view::*;

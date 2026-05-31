@@ -4,10 +4,8 @@ use wasm_bindgen_futures::spawn_local;
 use yew_icons::{Icon, IconData};
 use yew_router::prelude::Link;
 
-use super::{
-    DropZone, InspectorUiState, PeState, PeViewer, LogModal, LoadingScreen
-};
-use crate::{pages::pe_inspector::{ParsedPe, context::PeContext, header::PageHeader}, route::Route, services::StorageService};
+use super::*;
+use crate::{pages::pe_inspector::{ParsedPe, context::PeContext, header::PageHeader}, route::Route, services::StorageService, shared::LoadingScreen};
 
 const STORAGE_KEY: &str = "pe_inspector_cache";
 const MAX_CACHE_SIZE: usize = 2_000_000;

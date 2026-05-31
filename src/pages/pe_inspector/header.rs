@@ -2,9 +2,7 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconData};
 use yew_router::prelude::Link;
 
-use super::{
-    DropZone, InspectorUiState, PeState, PeViewer, LogModal, LoadingScreen
-};
+use super::*;
 use crate::{pages::pe_inspector::{ParsedPe, context::PeContext}, route::Route, services::StorageService};
 
 #[derive(Properties, PartialEq)]

@@ -2,7 +2,6 @@ use yew::prelude::*;
 use yew_router::prelude::Link;
 
 use crate::{pages::emulator::ui::{footer::Footer, header::Header, panel::Panel, sidebar::Sidebar}, route::Route};
-// use ui::{Sidebar, BottomControls, CpuView, MemoryView, ThreadsView, ModulesView};
 
 #[derive(PartialEq, Clone)]
 pub enum ActivePanel {

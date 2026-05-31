@@ -1,8 +1,7 @@
-use yew::prelude::*;
-use yew_icons::{Icon, IconData};
-use yew_router::prelude::Link;
+mod types;
+mod manager;
+mod form;
+mod session;
+mod view;
 
-#[function_component(Quiz)]
-pub fn quiz() -> Html {
-    html! {}
-}
+pub use view::*;

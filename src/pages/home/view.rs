@@ -36,7 +36,7 @@ pub fn home() -> Html {
                             icon_src="public/images/emulator.svg"
                             icon_alt="emulator icon"
                             title="Emulator"
-                            description="Interactive x86/x64 emulation sandbox. Step through instructions, inspect registers, memory, and stack in real-time."
+                            description="Interactive x86/x64 emulation sandbox. Step through instructions, inspect registers, memory, and stack."
                             tags={vec!["x86", "x64", "emulation", "registers", "step-by-step"]}
                         />
                         <Card
@@ -52,7 +52,7 @@ pub fn home() -> Html {
                             icon_src="public/images/code-desktop.svg"
                             icon_alt="Asm"
                             title="Asm Playground"
-                            description="Interactive x64 assembly sandbox. Experiment with instructions like PUSH, POP, MOV, and more. Set initial register values, define memory content, and see how instructions behave in real-time."
+                            description="Interactive x64 assembly sandbox. Experiment with instructions like PUSH, POP, MOV, and more. Set initial register values, define memory content, and see how instructions behave."
                             tags={vec!["x64", "assembly", "registers", "stack", "interactive"]}
                         />
                         <Card
