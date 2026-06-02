@@ -3,7 +3,7 @@ use web_sys::HtmlElement;
 use yew::prelude::*;
 use yew_icons::{Icon, IconData};
 
-use crate::pages::asm::tab_manager::TabManager;
+use crate::pages::asm::*;
 
 #[function_component(Tabs)]
 pub fn tabs() -> Html {

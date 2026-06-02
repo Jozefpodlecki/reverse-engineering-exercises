@@ -1,79 +1,52 @@
 use yew::prelude::*;
 use yew_icons::{Icon, IconData};
-use web_sys::{HtmlElement, HtmlInputElement, HtmlSelectElement};
 
-use crate::pages::asm::editor::AsmEditor;
-use crate::pages::asm::selectors::DecoderSelector;
-use crate::pages::asm::tab_manager::TabManager;
-use crate::pages::asm::types::DecoderKind;
+use crate::pages::asm::*;
 
 #[function_component(TabComponent)]
 pub fn tab() -> Html {
     let manager = use_context::<TabManager>().unwrap();
-    let current_tab = manager.active_tab().unwrap();
+    let current_tab = manager.active_tab();
     let index = manager.active_index();
-    
-    let on_decoder_change = {
-        let manager = manager.clone();
-        let index = index;
-        let tab = current_tab.clone();
-        Callback::from(move |kind: DecoderKind| {
-            let mut new_tab = tab.clone();
-            new_tab.decoder_type = kind;
-            manager.update_tab(index, new_tab);
-        })
-    };
-    
-    let on_rip_change = {
-        let manager = manager.clone();
-        let index = index;
-        let tab = current_tab.clone();
-        Callback::from(move |event: Event| {
-            let mut tab = tab.clone();
-            let input = event.target_unchecked_into::<HtmlInputElement>();
-            if let Ok(value) = u64::from_str_radix(&input.value().trim_start_matches("0x"), 16) {
-                tab.rip = value;
-                manager.update_tab(index, tab.clone());
-            }
-        })
-    };
-    
-    let rip_hex = format!("0x{:X}", current_tab.rip);
+    let is_running = use_state(|| false);
     
     let instructions: Vec<Html> = current_tab.instructions.iter().enumerate().map(|(idx, instruction)| {
         html! {
-             <AsmEditor 
+            <AsmEditor 
                 tab_index={index}
                 instr_index={idx}
                 instruction={instruction.clone()}
             />
         }
     }).collect();
-
-    log::info!("{:?}",  current_tab.decoder_type);
-
+    
+    let on_add_instruction = {
+        let manager = manager.clone();
+        let index = index;
+        Callback::from(move |_| {
+            manager.add_instruction(index);
+        })
+    };
+    
     html! {
-        <div class="flex flex-col gap-4">
-            <div class="">
-                {"Decoder"}
-                <DecoderSelector 
-                    value={current_tab.decoder_type.clone()} 
-                    on_change={on_decoder_change}
-                />
-                {"RIP"}
-                <input 
-                    type="text"
-                    class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm font-mono text-zinc-200"
-                    value={rip_hex}
-                    onchange={on_rip_change}
-                />
+        <div class="flex-1 flex flex-col h-full">
+            <RegisterPanel />
+            <div class="flex-1 flex justify-center items-center">
+                <div class="overflow-y-auto p-4">
+                    <div class="overflow-y-auto flex flex-col gap-2">
+                        {instructions}
+                        <button 
+                            type="button"
+                            class="w-100 flex items-center justify-center gap-2 px-4 py-2 mt-2 bg-zinc-800/50 rounded-lg hover:bg-zinc-700/50 transition text-sm text-zinc-400"
+                            onclick={on_add_instruction}
+                        >
+                            <Icon data={IconData::LUCIDE_PLUS} width="1rem" height="1rem" />
+                            {"New instruction"}
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="flex flex-col">
-                {instructions}
-                <button type="button">
-                    <Icon data={IconData::LUCIDE_PLUS} width="1.25rem" height="1.25rem" />
-                </button>
-            </div>
+            <ExecutionControls />
         </div>
     }
 }

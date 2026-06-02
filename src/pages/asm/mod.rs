@@ -4,7 +4,16 @@ mod tabs;
 mod types;
 mod editor;
 mod selectors;
+mod register_panel;
+mod execution_controls;
 mod view;
 
+pub use tab::*;
+pub use tab_manager::*;
+pub use tabs::*;
 pub use types::*;
+pub use editor::*;
+pub use selectors::*;
+pub use register_panel::*;
+pub use execution_controls::*;
 pub use view::*;

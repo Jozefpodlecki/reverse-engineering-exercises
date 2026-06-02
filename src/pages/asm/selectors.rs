@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use crate::pages::asm::types::DecoderKind;
+use crate::pages::asm::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
