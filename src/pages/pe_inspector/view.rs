@@ -1,4 +1,3 @@
-use gloo::timers::future::TimeoutFuture;
 use yew::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew_icons::{Icon, IconData};
@@ -69,7 +68,7 @@ pub fn pe_inspector() -> Html {
             
             let ui_state_clone = ui_state.clone();
             spawn_local(async move {
-                TimeoutFuture::new(100).await;
+                // TimeoutFuture::new(100).await;
                 ui_state_clone.set(InspectorUiState::Loaded);
             });
         })

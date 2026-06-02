@@ -6,7 +6,9 @@ use super::*;
 use crate::{route::Route, services::StorageService};
 
 #[derive(Properties, PartialEq)]
-pub struct Props {}
+pub struct Props {
+    pub title: String
+}
 
 #[function_component(PageHeader)]
 pub fn page_header(props: &Props) -> Html {
@@ -31,7 +33,7 @@ pub fn page_header(props: &Props) -> Html {
                     
                     <div class="absolute left-1/2 transform -translate-x-1/2">
                         <h1 class="text-base font-medium text-zinc-300">
-                            {"System Call Table"}
+                            {props.title.clone()}
                         </h1>
                     </div>
                     

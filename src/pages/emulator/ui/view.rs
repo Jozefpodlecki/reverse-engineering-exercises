@@ -1,7 +1,7 @@
 use yew::prelude::*;
 use yew_router::prelude::Link;
 
-use crate::{pages::emulator::ui::{footer::Footer, header::Header, panel::Panel, sidebar::Sidebar}, route::Route};
+use crate::{pages::emulator::ui::{footer::Footer, header::Header, panel::Panel, sidebar::Sidebar}, route::Route, shared::PageHeader};
 
 #[derive(PartialEq, Clone)]
 pub enum ActivePanel {
@@ -18,7 +18,8 @@ pub fn emulator() -> Html {
     
     html! {
         <div class="h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-            <Header/>
+            // <Header/>
+            <PageHeader title="Emulator"/>
             <div class="flex flex-1 overflow-hidden">
                 <Sidebar />
                 

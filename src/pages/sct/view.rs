@@ -1,83 +1,102 @@
+use std::collections::HashSet;
+
 use yew::prelude::*;
 use yew_icons::{Icon, IconData};
-use yew_router::prelude::Link;
+use yew_router::{hooks::use_location, prelude::Link};
 
-use crate::pages::sct::*;
-use super::PageHeader;
+use crate::{pages::sct::*, shared::{LoadingScreen, PageHeader}};
+
+#[derive(Default, PartialEq, Clone)]
+pub enum QuizUiState {
+    #[default]
+    Loading,
+    Loaded,
+    Error(String),
+}
+
+#[derive(Clone, PartialEq)]
+pub struct SyscallQuery {
+    pub os: Option<String>,
+    pub arch: Option<String> ,
+}
+
+impl SyscallQuery {
+    fn from_query_str(query: &str) -> Self {
+        let query = query.strip_prefix('?').unwrap_or("");
+        let mut os = None;
+        let mut arch = None;
+        
+        for part in query.split('&') {
+            let mut parts = part.split('=');
+            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                match key {
+                    "os" => os = Some(value.to_string()),
+                    "arch" => arch = Some(value.to_string()),
+                    _ => {}
+                }
+            }
+        }
+        
+        Self { os, arch }
+    }
+}
 
 #[function_component(SystemCallTable)]
 pub fn system_call_table() -> Html {
-    let selected_family = use_state(|| OsFamily::Windows);
-    let selected_versions = use_state(|| {
-        let mut set = std::collections::HashSet::new();
-        set.insert(WindowsVersion::Win10);
-        set.insert(WindowsVersion::Win11);
-        set
-    });
+    let ui_state = use_state(QuizUiState::default);
+    // let filter = use_state(Filter::default);
+    // ?arch=windows
+    let location = use_location().unwrap();
     
-    let show_selector = use_state(|| false);
+    // Get the query string (e.g., "?os=windows&arch=x64")
+    let query = location.query_str();
 
-    let toggle_version = {
-        let selected_versions = selected_versions.clone();
-        Callback::from(move |version: WindowsVersion| {
-            let mut new_set = (*selected_versions).clone();
-            if new_set.contains(&version) {
-                new_set.remove(&version);
-            } else {
-                new_set.insert(version);
+    {
+
+        use_effect_with((), move |_| {
+            
+            || ()
+        });
+    }
+
+    // let on_change = {
+    //     // let filter = filter.clone();
+    //     Callback::from(move |_| {
+            
+    //     })
+    // };
+
+    let content = match &*ui_state {
+        QuizUiState::Loaded => {
+            html! {
+                <div class="flex-1 container mx-auto px-6 py-8">
+                    <div class="max-w-6xl mx-auto space-y-6">
+                        // <FilterPanel
+                        //     filter={filter}
+                        //     on_change={on_change}
+                        // />
+                        
+                        // <SyscallTable />
+                    </div>
+                </div>
             }
-            selected_versions.set(new_set);
-        })
-    };
-
-    let select_all = {
-        let selected_versions = selected_versions.clone();
-        Callback::from(move |_| {
-            let new_set = WindowsVersion::all().into_iter().collect();
-            selected_versions.set(new_set);
-        })
-    };
-
-    let clear_all = {
-        let selected_versions = selected_versions.clone();
-        Callback::from(move |_| {
-            selected_versions.set(std::collections::HashSet::new());
-        })
-    };
-
-    let on_family_change = {
-        let selected_family = selected_family.clone();
-        Callback::from(move |family: OsFamily| {
-            selected_family.set(family);
-        })
-    };
-
-    let toggle_selector = {
-        let show_selector = show_selector.clone();
-        Callback::from(move |_| {
-            show_selector.set(!*show_selector);
-        })
+        },
+        QuizUiState::Loading => {
+            html! {
+                <LoadingScreen />
+            }
+        },
+        QuizUiState::Error(_) => {
+            html! {
+                <LoadingScreen />
+            }
+        },
     };
 
     html! {
         <div data-container=true class="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-            <PageHeader/>
-            <div class="flex-1 container mx-auto px-6 py-8">
-                <div class="max-w-6xl mx-auto space-y-6">
-                    <FilterPanel
-                        show={*show_selector}
-                        selected_family={(*selected_family).clone()}
-                        selected_versions={(*selected_versions).clone()}
-                        on_toggle={toggle_selector}
-                        on_family_change={on_family_change}
-                        on_toggle_version={toggle_version}
-                        on_select_all={select_all}
-                        on_clear_all={clear_all}
-                    />
-                    
-                    <SyscallTable selected={(*selected_versions).clone()} />
-                </div>
-            </div>
+            <PageHeader title="System Call Table"/>
+            {content}
         </div>
     }
 }

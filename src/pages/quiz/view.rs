@@ -2,7 +2,7 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconData};
 use yew_router::prelude::Link;
 
-use crate::{pages::quiz::{form::QuizForm, manager::SessionManager, session::QuizSessionComponent, types::*}, services::StorageService, shared::LoadingScreen};
+use crate::{pages::quiz::{form::QuizForm, manager::SessionManager, session::QuizSessionComponent, types::*}, services::StorageService, shared::{LoadingScreen, PageHeader}};
 
 #[function_component(Quiz)]
 pub fn quiz() -> Html {
@@ -55,7 +55,10 @@ pub fn quiz() -> Html {
 
     html! {
         <ContextProvider<SessionManager> context={(&*manager).clone()}>
-            {content}
+            <div data-container=true class="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+                <PageHeader title="Quiz"/>
+                {content}
+            </div>
         </ContextProvider<SessionManager>>
     }
 }
