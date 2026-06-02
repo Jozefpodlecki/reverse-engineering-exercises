@@ -38,23 +38,23 @@ impl TabManagerState {
                 Tab {
                     id: "1".to_string(),
                     name: random_string(10),
-                    decoder_type: DecoderKind::IcedX86,
+                    decoder: DecoderFactory::create("iced-x86", 64),
                     instructions: vec![
                         AsmInstruction::default(),
                         AsmInstruction::default(),
                         AsmInstruction::default(),
                         AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default(),
-                        AsmInstruction::default()
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default(),
+                        // AsmInstruction::default()
                     ],
                     registers: Registers::default()
                 }
@@ -92,7 +92,7 @@ impl TabManager {
         let tab= Tab {
             id: new_id,
             name: random_string(10),
-            decoder_type: DecoderKind::IcedX86,
+            decoder: DecoderFactory::create("iced-x86", 64),
             instructions: vec![
                 AsmInstruction::default()
             ],
@@ -130,6 +130,12 @@ impl TabManager {
             self.0.set(new_state);
         }
     }
+
+    pub fn update_decoder(&self, kind: &str, index: usize) {
+        let mut new_state = (*self.0).clone();
+        new_state.tabs[index].decoder = DecoderFactory::create(kind, 64);
+        self.0.set(new_state);
+    }
     
     pub fn update_tab(&self, index: usize, tab: Tab) {
         let mut new_state = (*self.0).clone();
@@ -157,28 +163,28 @@ impl TabManager {
         let mut new_state = (*self.0).clone();
         
         let tab = &new_state.tabs[tab_index];
-        let decoder = DecoderFactory::create(&tab.decoder_type, 64);
-
-        let tab = &new_state.tabs[tab_index];
-        let decoder = DecoderFactory::create(&tab.decoder_type, 64);
         
-        let decoded = decoder.decode(&bytes, tab.registers.rip).ok();
+        let decoder = tab.decoder.clone();
+        let mut rip = tab.registers.rip;
+
+        let address = if instr_index > 0 {
+            let instructions = &new_state.tabs[tab_index].instructions;
+            let prev_instr_addr = instructions[instr_index - 1].address;
+            prev_instr_addr + prev_instr_addr as u64
+        } else {
+            rip
+        };
         
         let instructions = &mut new_state.tabs[tab_index].instructions;
-        let instr_len = instructions.len();
-        let instruction = &mut instructions[instr_index];
-
-        if instr_index < instr_len {
-            instruction.bytes = bytes;
+        instructions[instr_index] = AsmInstruction::from_bytes(bytes, address, &*decoder);
+        
+        for i in 0..instructions.len() {
+            instructions[i].address = rip;
+            if instructions[i].length > 0 {
+                rip += instructions[i].length as u64;
+            }
         }
-
-        if let Some(decoded) = decoded {
-            instruction.asm = decoded.asm;
-        }
-        else {
-            instruction.asm = Default::default();
-        }
-
+        
         self.0.set(new_state);
     }
 
@@ -209,11 +215,19 @@ impl TabManager {
         }
     }
 
+    pub fn can_run(&self) -> bool {
+        let current_tab = self.active_tab();
+        let is_valid = current_tab.instructions_valid();
+        let is_empty = current_tab.instructions.is_empty();
+        log::info!("{is_valid}{is_empty}");
+        is_valid && !is_empty
+    }
+
     pub fn is_running(&self) -> bool {
         self.0.emulator.is_running
     }
 
-     pub fn step_into(&self) {
+    pub fn step_into(&self) {
         let mut new_state = (*self.0).clone();
         let active_index = new_state.active_index;
         let tab = &mut new_state.tabs[active_index];
@@ -222,15 +236,14 @@ impl TabManager {
         let instructions = &tab.instructions;
         
         let instr_index = instructions.iter().position(|instr| {
-            let instr_end = tab.registers.rip; // Need to track instruction addresses
+            let instr_end = tab.registers.rip;
             false // Simplified - need instruction addresses
         }).unwrap_or(0);
         
         if instr_index < instructions.len() {
             let instr = &instructions[instr_index];
-            let decoder = DecoderFactory::create(&tab.decoder_type, 64);
             
-            if let Ok(decoded) = decoder.decode(&instr.bytes, rip) {
+            if let Ok(decoded) = tab.decoder.decode(&instr.bytes, rip) {
                 Self::execute_instruction(&mut tab.registers, &decoded);
                 tab.registers.rip = rip + decoded.size as u64;
             }
@@ -252,9 +265,8 @@ impl TabManager {
         
         if instr_index < instructions.len() {
             let instr = &instructions[instr_index];
-            let decoder = DecoderFactory::create(&tab.decoder_type, 64);
             
-            if let Ok(decoded) = decoder.decode(&instr.bytes, rip) {
+            if let Ok(decoded) = tab.decoder.decode(&instr.bytes, rip) {
                 let is_call = decoded.mnemonic.to_lowercase().contains("call");
                 
                 if is_call {
@@ -275,7 +287,6 @@ impl TabManager {
         new_state.emulator.is_running = true;
         self.0.set(new_state);
         
-
         while self.0.emulator.is_running {
             self.step_into();
         }
@@ -290,8 +301,8 @@ impl TabManager {
         wasm_bindgen_futures::spawn_local(async move {
             while manager.is_running() {
                 manager.step_into();
-
-                gloo::timers::future::TimeoutFuture::new(1).await;
+                log::info!("running");
+                gloo::timers::future::TimeoutFuture::new(1000).await;
             }
         });
     }

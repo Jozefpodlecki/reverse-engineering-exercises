@@ -14,12 +14,15 @@ pub struct Props {
 #[function_component(AsmEditor)]
 pub fn asm_editor(props: &Props) -> Html {
     let manager = use_context::<TabManager>().unwrap();
-    
-    let on_bytes_change = {
-        let manager = manager.clone();
-        Callback::from(move |(tab_index, instr_index, bytes): (usize, usize, Vec<u8>)| {
-            manager.update_instruction(tab_index, instr_index, bytes);
-        })
+    let current_tab = manager.active_tab();
+    let is_current = current_tab.registers.rip == props.instruction.address;
+    let is_running = manager.is_running();
+
+    let row_class = match (is_running, is_current) {
+        (true, true) => "flex gap-2 items-center mb-2 p-2 bg-amber-900/30 border-l-4 border-amber-500 rounded-r-lg",
+        (true, false) => "flex gap-2 items-center mb-2 p-2",
+        (false, true) => "flex gap-2 items-center mb-2 p-2",
+        (false, false) => "flex gap-2 items-center mb-2 p-2",
     };
 
     let on_delete = {
@@ -32,12 +35,11 @@ pub fn asm_editor(props: &Props) -> Html {
     };
     
     html! {
-        <div class="flex gap-2 items-center mb-2 p-2">
+        <div data-instruction=true class={row_class}>
             <HexByteEditor 
                 tab_index={props.tab_index}
                 instr_index={props.instr_index}
                 instruction={props.instruction.clone()}
-                on_bytes_change={on_bytes_change}
             />
             <input 
                 type="text"

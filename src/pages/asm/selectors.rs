@@ -1,24 +1,22 @@
+use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 use crate::pages::asm::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub value: DecoderKind,
-    pub on_change: Callback<DecoderKind>,
+    pub value: String,
+    pub on_change: Callback<String>,
 }
 
 #[function_component(DecoderSelector)]
 pub fn decoder_selector(props: &Props) -> Html {
     let on_change = {
         let on_change = props.on_change.clone();
-        Callback::from(move |e: Event| {
-            let select = e.target_unchecked_into::<web_sys::HtmlSelectElement>();
+        Callback::from(move |event: Event| {
+            let select = event.target_unchecked_into::<HtmlSelectElement>();
             let value = select.value();
-            let kind = match value.as_str() {
-                "prometheus" => DecoderKind::Prometheus,
-                _ => DecoderKind::IcedX86,
-            };
-            on_change.emit(kind);
+           
+            on_change.emit(value);
         })
     };
     
@@ -29,13 +27,13 @@ pub fn decoder_selector(props: &Props) -> Html {
         >
             <option 
                 value="iced" 
-                selected={matches!(props.value, DecoderKind::IcedX86)}
+                selected={props.value == "iced-x86"}
             >
                 {"iced-x86"}
             </option>
             <option 
                 value="prometheus" 
-                selected={matches!(props.value, DecoderKind::Prometheus)}
+                selected={props.value == "prometheus"}
             >
                 {"prometheus"}
             </option>

@@ -7,6 +7,8 @@ mod selectors;
 mod register_panel;
 mod execution_controls;
 mod view;
+mod utils;
+mod decoder;
 
 pub use tab::*;
 pub use tab_manager::*;
@@ -17,3 +19,5 @@ pub use selectors::*;
 pub use register_panel::*;
 pub use execution_controls::*;
 pub use view::*;
+pub use utils::*;
+pub use decoder::*;

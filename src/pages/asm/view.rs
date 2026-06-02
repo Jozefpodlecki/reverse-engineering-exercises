@@ -1,10 +1,7 @@
 use yew::prelude::*;
 use yew_icons::{Icon, IconData};
-use crate::pages::asm::tab::TabComponent;
-use crate::pages::asm::tab_manager::{TabManager, TabManagerState};
-use crate::pages::asm::tabs::Tabs;
+use crate::pages::asm::*;
 use crate::shared::PageHeader;
-use crate::pages::asm::types::{Tab, DecoderKind};
 
 #[function_component(Asm)]
 pub fn asm() -> Html {

@@ -86,7 +86,7 @@ pub fn byte_input(props: &Props) -> Html {
             type="text"
             maxlength="2"
             size="2"
-            class="w-10 text-center bg-zinc-800 border border-zinc-700 rounded px-1 py-1 text-sm font-mono text-zinc-200 focus:outline-none focus:border-cyan-500"
+            class="w-8 text-center bg-zinc-800 border border-zinc-700 rounded px-1 py-1 text-sm font-mono text-zinc-200 focus:outline-none focus:border-cyan-500"
             placeholder="--"
             value={display_value}
             onchange={on_change}

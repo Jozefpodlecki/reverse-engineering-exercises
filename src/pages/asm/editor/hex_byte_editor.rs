@@ -8,12 +8,13 @@ use crate::pages::asm::editor::*;
 pub struct Props {
     pub tab_index: usize,
     pub instr_index: usize,
-    pub instruction: AsmInstruction,
-    pub on_bytes_change: Callback<(usize, usize, Vec<u8>)>,
+    pub instruction: AsmInstruction
 }
 
 #[function_component(HexByteEditor)]
 pub fn hex_byte_editor(props: &Props) -> Html {
+    let manager = use_context::<TabManager>().unwrap();
+
     let bytes = use_state(|| {
         let mut arr = [None; 15];
         for (i, &b) in props.instruction.bytes.iter().enumerate() {
@@ -26,9 +27,9 @@ pub fn hex_byte_editor(props: &Props) -> Html {
     
     let on_byte_change = {
         let bytes = bytes.clone();
-        let on_bytes_change = props.on_bytes_change.clone();
         let tab_index = props.tab_index;
         let instr_index = props.instr_index;
+        let manager = manager.clone();
         
         Callback::from(move |(idx, value): (usize, String)| {
             let mut new_bytes = (*bytes).clone();
@@ -49,20 +50,34 @@ pub fn hex_byte_editor(props: &Props) -> Html {
             bytes.set(new_bytes.clone());
             
             let collected: Vec<u8> = new_bytes.iter().filter_map(|&b| b).collect();
-            on_bytes_change.emit((tab_index, instr_index, collected));
+            manager.update_instruction(tab_index, instr_index, collected);
         })
     };
     
     let on_clear = {
         let bytes = bytes.clone();
-        let on_bytes_change = props.on_bytes_change.clone();
         let tab_index = props.tab_index;
         let instr_index = props.instr_index;
-        
+        let manager = manager.clone();
+
         Callback::from(move |_| {
             let new_bytes = [None; 15];
             bytes.set(new_bytes);
-            on_bytes_change.emit((tab_index, instr_index, Vec::new()));
+            manager.update_instruction(tab_index, instr_index, Vec::new());
+        })
+    };
+
+    let on_random = {
+        let bytes = bytes.clone();
+        let tab_index = props.tab_index;
+        let instr_index = props.instr_index;
+        let manager = manager.clone();
+
+        Callback::from(move |_| {
+            let new_bytes = random_instruction();
+            bytes.set(new_bytes);
+            let collected: Vec<u8> = new_bytes.iter().filter_map(|&b| b).collect();
+            manager.update_instruction(tab_index, instr_index, collected);
         })
     };
     
@@ -87,6 +102,12 @@ pub fn hex_byte_editor(props: &Props) -> Html {
     
     html! {
         <div class="flex gap-2 items-center">
+            <div class="text-zinc-500 font-mono text-sm w-16 mr-2">
+                {format!("0x{:08X}", props.instruction.address)}
+            </div>
+            <button type="button" onclick={on_random} class="p-2">
+                <Icon data={IconData::LUCIDE_DICES} width="1rem" height="1rem" />
+            </button>
             <div class="flex gap-1 font-mono">
                 {byte_inputs}
             </div>

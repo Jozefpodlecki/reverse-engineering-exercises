@@ -18,10 +18,8 @@ pub fn register_panel(props: &Props) -> Html {
         let manager = manager.clone();
         let tab_index = tab_index;
         let tab = current_tab.clone();
-        Callback::from(move |kind: DecoderKind| {
-            let mut new_tab = tab.clone();
-            new_tab.decoder_type = kind;
-            manager.update_tab(tab_index, new_tab);
+        Callback::from(move |kind: String| {
+            manager.update_decoder(&kind, tab_index);
         })
     };
     
@@ -75,7 +73,7 @@ pub fn register_panel(props: &Props) -> Html {
                 <div class="flex items-center gap-2">
                     <label class="text-sm text-zinc-400">{"Decoder:"}</label>
                     <DecoderSelector 
-                        value={current_tab.decoder_type.clone()} 
+                        value={current_tab.decoder.name().to_string()} 
                         on_change={on_decoder_change}
                     />
                 </div>
