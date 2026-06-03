@@ -21,7 +21,7 @@ pub fn tabs() -> Html {
             let action = target.get_attribute("data-action").unwrap_or_else(|| "none".to_string());
             let tab_id = target.get_attribute("data-tab-id");
             
-            log::info!("{}", target.tag_name());
+            // log::info!("{}", target.tag_name());
 
             match action.as_str() {
                 "close" => {
@@ -31,7 +31,7 @@ pub fn tabs() -> Html {
                         return;
                     }
 
-                    manager.close_tab(id);
+                    manager.close_tab(id.parse().unwrap());
                 }
                 "select" => {
                     let index = target.get_attribute("data-tab-index").unwrap();
@@ -70,7 +70,7 @@ pub fn tabs() -> Html {
                     type="button"
                     class="p-0.5 rounded hover:bg-zinc-700"
                     data-action="close"
-                    data-tab-id={tab.id.clone()}
+                    data-tab-id={tab.id.to_string()}
                 >
                     <Icon data={IconData::LUCIDE_X} width="1.25rem" height="1.25rem" />
                 </button>

@@ -107,3 +107,14 @@ pub fn random_instructions(count: usize) -> Vec<[Option<u8>; 15]> {
     }
     result
 }
+
+pub fn random_string(length: usize) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    (0..length)
+        .map(|_| {
+            let idx = rng().random_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
+}

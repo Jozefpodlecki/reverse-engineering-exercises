@@ -1,0 +1,10 @@
+[package]
+name = "syscall-table-merger"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tantivy = "0.26.1"
+serde = "*"
+tar = "0.4"
+anyhow = "*"

@@ -17,7 +17,7 @@ pub struct CardProps {
 pub fn card(props: &CardProps) -> Html {
     html! {
         <Link<Route> to={props.route.clone()} classes="block group h-full">
-            <div class="border border-zinc-800 rounded-2xl p-6 bg-zinc-900/30 hover:bg-zinc-900/50 hover:border-cyan-500/40 transition space-y-4 h-full flex flex-col">
+            <div class="border border-zinc-800 rounded-2xl p-3 bg-zinc-900/30 hover:bg-zinc-900/50 hover:border-cyan-500/40 transition space-y-2 h-full flex flex-col">
                 <div class="flex items-center gap-4">
                     <img
                         src={props.icon_src}

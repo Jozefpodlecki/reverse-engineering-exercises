@@ -9,6 +9,9 @@ mod execution_controls;
 mod view;
 mod utils;
 mod decoder;
+mod emulator;
+mod executor;
+mod memory;
 
 pub use tab::*;
 pub use tab_manager::*;
@@ -21,3 +24,6 @@ pub use execution_controls::*;
 pub use view::*;
 pub use utils::*;
 pub use decoder::*;
+pub use emulator::*;
+pub use executor::*;
+pub use memory::*;

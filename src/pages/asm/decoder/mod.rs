@@ -6,12 +6,20 @@ pub trait Decoder: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct DecodedInstruction {
     pub bytes: Vec<u8>,
+    pub length: usize,
     pub asm: String,
     pub mnemonic: String,
     pub operands: String,
     pub size: u8,
+}
+
+impl DecodedInstruction {
+    pub fn is_call_or_jmp(&self) -> bool {
+        false
+    }
 }
 
 pub struct DecoderFactory;
@@ -56,6 +64,7 @@ impl Decoder for IcedDecoder {
         
         Ok(DecodedInstruction {
             bytes: bytes[..instruction.len()].to_vec(),
+            length: instruction.len(),
             asm: output,
             mnemonic,
             operands,
@@ -87,6 +96,7 @@ impl Decoder for PrometheusDecoder {
 
         Ok(DecodedInstruction {
             bytes: instruction.bytes.to_vec(),
+            length: instruction.bytes.length,
             asm: formatter.format(&instruction),
             mnemonic: format!("{:?}", instruction.mnemonic),
             operands: format!("{:?}", instruction.operands),
