@@ -144,13 +144,82 @@ impl<'a> Lexer<'a> {
         }
         
         match ident.as_str() {
-            "syscall" => Ok(Token::Mnemonic(ident)),
-            "push" | "pop" | "mov" | "sub" | "add" | "xor" | "jmp" => Ok(Token::Mnemonic(ident)),
-            "rax" | "rcx" | "rdx" | "rbx" | "rsp" | "rbp" | "rsi" | "rdi" | 
+            "lock" => Ok(Token::Lock),
+            "rep" => Ok(Token::Rep),
+            "repne" | "repnz" => Ok(Token::Repne),
+            "rax" | "rcx" | "rdx" | "rbx" | "rsp" | "rbp" | "rsi" | "rdi" => Ok(Token::Register(ident)),
             "r8" | "r9" | "r10" | "r11" | "r12" | "r13" | "r14" | "r15" => Ok(Token::Register(ident)),
+            "eax" | "ecx" | "edx" | "ebx" | "esp" | "ebp" | "esi" | "edi" => Ok(Token::Register(ident)),
+            "ax" | "cx" | "dx" | "bx" | "sp" | "bp" | "si" | "di" => Ok(Token::Register(ident)),
+            "al" | "cl" | "dl" | "bl" | "ah" | "ch" | "dh" | "bh" => Ok(Token::Register(ident)),
+
             _ if ident.starts_with('r') && ident.len() == 2 && ident[1..].parse::<u8>().is_ok() => {
                 Ok(Token::Register(ident))
             }
+            _ if ident.starts_with("xmm") && ident.len() > 3 => {
+                let num = &ident[3..];
+                if num.parse::<u8>().is_ok() {
+                    Ok(Token::XmmRegister(ident))
+                } else {
+                    Ok(Token::Label(ident))
+                }
+            }
+            _ if ident.starts_with("ymm") && ident.len() > 3 => {
+                let num = &ident[3..];
+                if num.parse::<u8>().is_ok() {
+                    Ok(Token::YmmRegister(ident))
+                } else {
+                    Ok(Token::Label(ident))
+                }
+            }
+            _ if ident.starts_with("zmm") && ident.len() > 3 => {
+                let num = &ident[3..];
+                if num.parse::<u8>().is_ok() && num.parse::<u8>().unwrap() <= 31 {
+                    Ok(Token::ZmmRegister(ident))
+                } else {
+                    Ok(Token::Label(ident))
+                }
+            }
+            _ if ident.starts_with("k") && ident.len() > 1 => {
+                let num = &ident[1..];
+                if num.parse::<u8>().is_ok() && num.parse::<u8>().unwrap() <= 7 {
+                    Ok(Token::Register(ident))
+                } else {
+                    Ok(Token::Label(ident))
+                }
+            }
+            "syscall" | "sysenter" | "sysexit" | "ret" | "nop" | "int3" | "hlt" | "cpuid" | "rdtsc" => Ok(Token::Mnemonic(ident)),
+            "push" | "pop" | "mov" | "sub" | "add" | "xor" | "or" | "and" | "inc" | "dec" | "neg" | "not" => {
+                Ok(Token::Mnemonic(ident))
+            }
+            "jmp" | "je" | "jne" | "jz" | "jnz" | "jg" | "jl" | "jge" | "jle" | "ja" | "jb" | "call" => {
+                Ok(Token::Mnemonic(ident))
+            }
+            "cmp" | "test" | "lea" | "enter" | "leave" => Ok(Token::Mnemonic(ident)),
+            "movsx" | "movzx" | "xchg" => Ok(Token::Mnemonic(ident)),
+            "mul" | "imul" | "div" | "idiv" => Ok(Token::Mnemonic(ident)),
+            "shl" | "shr" | "sar" | "sal" | "rol" | "ror" | "rcl" | "rcr" => Ok(Token::Mnemonic(ident)),
+            "bt" | "bts" | "btr" | "btc" => Ok(Token::Mnemonic(ident)),
+            "bsf" | "bsr" | "popcnt" | "lzcnt" | "tzcnt" => Ok(Token::Mnemonic(ident)),
+            "cmove" | "cmovz" | "cmovne" | "cmovnz" | "cmovg" | "cmovge" | "cmovl" | "cmovle" |
+            "cmova" | "cmovae" | "cmovb" | "cmovbe" | "cmovs" | "cmovns" => Ok(Token::Mnemonic(ident)),
+            "movsb" | "movsw" | "movsd" | "movsq" => Ok(Token::Mnemonic(ident)),
+            "cmpsb" | "cmpsw" | "cmpsd" | "cmpsq" => Ok(Token::Mnemonic(ident)),
+            "scasb" | "scasw" | "scasd" | "scasq" => Ok(Token::Mnemonic(ident)),
+            "stosb" | "stosw" | "stosd" | "stosq" => Ok(Token::Mnemonic(ident)),
+            "lodsb" | "lodsw" | "lodsd" | "lodsq" => Ok(Token::Mnemonic(ident)),
+            "mfence" | "lfence" | "sfence" => Ok(Token::Mnemonic(ident)),
+            "movsd" | "movss" | "movaps" | "movups" | "movupd" | "movapd" => Ok(Token::Mnemonic(ident)),
+            "addsd" | "addss" | "addpd" | "addps" => Ok(Token::Mnemonic(ident)),
+            "subsd" | "subss" | "subpd" | "subps" => Ok(Token::Mnemonic(ident)),
+            "mulsd" | "mulss" | "mulpd" | "mulps" => Ok(Token::Mnemonic(ident)),
+            "divsd" | "divss" | "divpd" | "divps" => Ok(Token::Mnemonic(ident)),
+            "sqrtpd" | "sqrtps" | "sqrtsd" | "sqrtss" => Ok(Token::Mnemonic(ident)),
+            "vaddpd" | "vsubpd" | "vmulpd" | "vdivpd" => Ok(Token::Mnemonic(ident)),
+            "vaddps" | "vsubps" | "vmulps" | "vdivps" => Ok(Token::Mnemonic(ident)),
+            "vmovsd" | "vmovss" | "vmovapd" | "vmovaps" => Ok(Token::Mnemonic(ident)),
+            "vmovdqa" | "vmovdqu" | "vmovdqa32" | "vmovdqa64" => Ok(Token::Mnemonic(ident)),
+            "vpaddd" | "vpsubd" | "vpmulld" | "vpand" | "vpor" | "vpxor" => Ok(Token::Mnemonic(ident)),
             _ => Ok(Token::Label(ident)),
         }
     }

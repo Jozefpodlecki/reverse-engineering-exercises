@@ -34,7 +34,7 @@ impl Assembler {
         
         let mut binary = Vec::new();
         for instr in instructions {
-            binary.extend(x86_64::encode(&instr));
+            binary.extend(x86_64::Encoder::encode(&instr));
         }
         
         Ok(binary)
