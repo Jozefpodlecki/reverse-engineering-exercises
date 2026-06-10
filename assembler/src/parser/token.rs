@@ -1,4 +1,4 @@
-use crate::parser::{mnemonic::Mnemonic, register::Register};
+use crate::{parser::{mnemonic::Mnemonic, register::Register}, string::StackString};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -9,7 +9,7 @@ pub enum Token {
     Mnemonic(Mnemonic),
     Register(Register),
     Immediate(i64),
-    Label(String),
+    Label(StackString<32>),
     OpenBracket,
     CloseBracket,
     Comma,

@@ -13,8 +13,8 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(source: &'a str, source_name: &'a str) -> Self {
-        let lexer = Lexer::new(source, source_name);
+    pub fn new(source: &'a str) -> Self {
+        let lexer = Lexer::new(source);
         let mut parser = Self {
             lexer,
             current: None,
@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
             Token::Label(name) => {
                 self.advance();
                 self.expect(Token::Colon)?;
-                Ok(Instruction::Label(name))
+                Ok(Instruction::Label(name.to_string()))
             }
             _ => {
                 let loc = token.location;
@@ -681,7 +681,7 @@ impl<'a> Parser<'a> {
             Token::Label(label) => {
                 self.advance();
                 Ok(Spanned {
-                    value: Operand::Label(label),
+                    value: Operand::Label(label.to_string()),
                     location: start_loc,
                 })
             }
@@ -742,5 +742,17 @@ impl<'a> Parser<'a> {
             value: Operand::Memory(MemoryAddress { base, displacement }),
             location: start_loc,
         })
+    }
+}
+
+impl<'a> Iterator for Parser<'a> {
+    type Item = Result<Instruction, ParserError>;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.parse_instruction() {
+            Ok(Some(instr)) => Some(Ok(instr)),
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        }
     }
 }

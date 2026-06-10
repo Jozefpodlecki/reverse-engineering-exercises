@@ -1,51 +1,17 @@
 use core::{iter::Peekable, str::Chars};
 
-use super::token::{Token, Location, Spanned};
-
-pub struct LexerErrors(pub Vec<LexerError>);
-
-impl std::fmt::Display for LexerErrors {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for err in &self.0 {
-            writeln!(f, "{}", err)?;
-        }
-        Ok(())
-    }
-}
-
-impl std::fmt::Debug for LexerErrors {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self, f)
-    }
-}
-
-impl std::error::Error for LexerErrors {}
-
-impl std::fmt::Display for LexerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}: {}", self.line, self.col, self.message)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct LexerError {
-    pub message: String,
-    pub line: usize,
-    pub col: usize,
-}
+use crate::{LexerError, LexerErrorType, LexerErrors, Location, Spanned, Token, string::StackString};
 
 pub struct Lexer<'a> {
     source: Peekable<Chars<'a>>,
-    position: Location,
-    source_name: &'a str,
+    position: Location
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str, source_name: &'a str) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self {
             source: source.chars().peekable(),
-            position: Location { line: 1, col: 1 },
-            source_name,
+            position: Location { line: 1, col: 1 }
         }
     }
     
@@ -120,12 +86,13 @@ impl<'a> Lexer<'a> {
             '#' => self.single_char_token(Token::Hash),
             ';' => {
                 self.skip_line();
-                self.next_token().ok_or_else(|| LexerError {
-                    message: "EOF after comment".to_string(),
-                    line: start_loc.line,
-                    col: start_loc.col,
-                })??;
-                unreachable!()
+                return self.next_token()
+                    .ok_or_else(|| LexerError {
+                        kind: LexerErrorType::UnexpectedEof,
+                        line: start_loc.line,
+                        col: start_loc.col,
+                    })?
+                    .map(|spanned| spanned.value);
             }
             '\n' => {
                 self.source.next();
@@ -137,7 +104,7 @@ impl<'a> Lexer<'a> {
             _ => {
                 self.source.next();
                 Err(LexerError {
-                    message: format!("Unexpected character: '{}'", char),
+                    kind: LexerErrorType::UnexpectedChar(char),
                     line: start_loc.line,
                     col: start_loc.col,
                 })
@@ -149,35 +116,43 @@ impl<'a> Lexer<'a> {
         self.source.next();
         Ok(token)
     }
-    
-    fn read_identifier_or_number(&mut self) -> Result<Token, LexerError> {
-        let mut ident = String::new();
+
+    fn read_identifier(&mut self) -> Result<StackString<32>, LexerError> {
+        let mut ident = StackString::<32>::new();
         let start_pos = self.position.clone();
         
         while let Some(&c) = self.source.peek() {
-            if c.is_alphanumeric() || c == '_' || (c == 'x' && ident == "0") {
-                ident.push(c);
+            let should_continue = c.is_alphanumeric() 
+                || c == '_' 
+                || (c == 'x' && ident.as_str() == "0");
+            
+            if should_continue {
+                ident.push(c).map_err(|_| LexerError {
+                    kind: LexerErrorType::CapacityExceeded,
+                    line: start_pos.line,
+                    col: start_pos.col,
+                })?;
                 self.advance();
             } else {
                 break;
             }
         }
         
-        if ident.starts_with("0x") || ident.starts_with("0X") {
-            let val = i64::from_str_radix(&ident[2..], 16)
-                .map_err(|_| LexerError {
-                    message: format!("Invalid hex: {}", ident),
-                    line: start_pos.line,
-                    col: start_pos.col,
-                })?;
+        Ok(ident)
+    }
+        
+    fn read_identifier_or_number(&mut self) -> Result<Token, LexerError> {
+        let ident = self.read_identifier()?;
+        
+        if let Some(val) = ident.parse_hex() {
             return Ok(Token::Immediate(val));
         }
         
-        if let Ok(val) = ident.parse::<i64>() {
+        if let Some(val) = ident.parse_decimal() {
             return Ok(Token::Immediate(val));
         }
         
-        if let Some(token) = Token::from_ident(&ident) {
+        if let Some(token) = Token::from_ident(ident.as_str()) {
             Ok(token)
         } else {
             Ok(Token::Label(ident))

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-
-use crate::encoder::x86_64;
+use crate::encoder::x86_64::{self, EncoderIter};
 use crate::error::AssemblerError;
 use crate::source::Source;
 use crate::parser::Parser;
@@ -15,12 +14,12 @@ impl Assembler {
             symbol_table: HashMap::new(),
         }
     }
-    
+
     pub fn assemble<S: Source>(&mut self, source: S) -> Result<Vec<u8>, AssemblerError> {
         let source_name = source.name();
         let source_str = source.get_source().map_err(|err| AssemblerError::SourceError(err))?;
         
-        let mut parser = Parser::new(&source_str, source_name);
+        let mut parser = Parser::new(&source_str);
         let (instructions, label_offsets) = parser.parse_with_labels()?;
         self.symbol_table = label_offsets;
         
@@ -40,7 +39,7 @@ impl Assembler {
         let source_name = source.name();
         let source_str = source.get_source().map_err(|err| AssemblerError::SourceError(err))?;
         
-        let mut parser = Parser::new(&source_str, source_name);
+        let mut parser = Parser::new(&source_str);
         let (instructions, label_offsets) = parser.parse_with_labels()?;
         
         let mut binary = Vec::new();
