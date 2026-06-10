@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{Spanned, ast::{ConditionCode, Prefix}, parser::ast::{Instruction, MemoryAddress, Operand}};
 
 pub struct Encoder;
@@ -106,16 +108,83 @@ impl Encoder {
             Instruction::Sfence => Self::encode_fence("sfence"),
             Instruction::Movs => Self::encode_string("movsd"),
             Instruction::Prefixed(items, instruction) => Self::encode_prefixed(items, instruction),
+            Instruction::Label(_) => todo!(),
+            Instruction::Prefetch(spanned) => todo!(),
+            Instruction::Prefetchnta(spanned) => todo!(),
+            Instruction::Prefetcht0(spanned) => todo!(),
+            Instruction::Prefetcht1(spanned) => todo!(),
+            Instruction::Prefetcht2(spanned) => todo!(),
+            Instruction::Prefetchw(spanned) => todo!(),
         }
     }
-    
+
+    pub fn encode_with_labels(instruction: &Instruction, symbols: &HashMap<String, usize>, current_offset: u64) -> Vec<u8> {
+        match instruction {
+            // Instruction::Jmp(Spanned { value: Operand::Label(name), .. }) => {
+            //     if let Some(&target) = symbols.get(name) {
+            //         let offset = (target as i64) - (current_offset as i64 + 5);
+            //         let mut bytes = vec![0xE9];
+            //         bytes.extend_from_slice(&(offset as u32).to_le_bytes());
+            //         bytes
+            //     } else {
+            //         vec![0xE9, 0x00, 0x00, 0x00, 0x00]
+            //     }
+            // }
+            Instruction::Jmp(Spanned { value: Operand::Label(name), .. }) => {
+                
+                if let Some(&target) = symbols.get(name) {
+                    let offset = (target as i64) - (current_offset as i64 + 5);
+                    let mut bytes = vec![0xE9];
+                    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
+                    bytes
+                } else {
+                    vec![0xE9, 0x00, 0x00, 0x00, 0x00]
+                }
+            }
+            Instruction::Call(Spanned { value: Operand::Label(name), .. }) => {
+                if let Some(&target) = symbols.get(name) {
+                    let offset = (target as i64) - (current_offset as i64 + 5);
+                    let mut bytes = vec![0xE8];
+                    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
+                    bytes
+                } else {
+                    vec![0xE8, 0x00, 0x00, 0x00, 0x00]
+                }
+            }
+            Instruction::Jcc(cc, Spanned { value: Operand::Label(name), .. }) => {
+                if let Some(&target) = symbols.get(name) {
+                    let opcode = match cc {
+                        ConditionCode::E | ConditionCode::Z => 0x84,
+                        ConditionCode::NE | ConditionCode::NZ => 0x85,
+                        ConditionCode::G => 0x8F,
+                        ConditionCode::GE => 0x8D,
+                        ConditionCode::L => 0x8C,
+                        ConditionCode::LE => 0x8E,
+                        ConditionCode::A => 0x87,
+                        ConditionCode::AE => 0x83,
+                        ConditionCode::B => 0x82,
+                        ConditionCode::BE => 0x86,
+                        _ => 0x84,
+                    };
+                    let offset = (target as i64) - (current_offset as i64 + 6);
+                    let mut bytes = vec![0x0F, opcode];
+                    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
+                    bytes
+                } else {
+                    vec![0x0F, 0x84, 0x00, 0x00, 0x00, 0x00]
+                }
+            }
+            _ => Self::encode(instruction),
+        }
+    }
+
     fn encode_prefixed(prefixes: &[Prefix], instruction: &Instruction) -> Vec<u8> {
         let mut bytes = Vec::new();
         for prefix in prefixes {
             bytes.push(match prefix {
-                Prefix::Lock => 0xF0,
                 Prefix::Rep => 0xF3,
                 Prefix::Repne => 0xF2,
+                Prefix::Lock => 0xF0,
             });
         }
         bytes.extend(Self::encode(instruction));
@@ -124,15 +193,35 @@ impl Encoder {
 
     fn encode_push(op: &Spanned<Operand>) -> Vec<u8> {
         match &op.value {
-            Operand::Register(reg) => vec![0x50 + Self::get_register_code(reg)],
-            Operand::Immediate(imm) => vec![0x68, *imm as u8],
+            Operand::Register(reg) => {
+                let reg_code = Self::get_register_code(reg);
+                // r8 through r15 need REX prefix
+                if reg.starts_with('r') && reg.len() >= 2 && reg != "rax" && reg != "rcx" && reg != "rdx" && 
+                reg != "rbx" && reg != "rsp" && reg != "rbp" && reg != "rsi" && reg != "rdi" {
+                    vec![0x41, 0x50 + (reg_code - 8)]
+                } else {
+                    vec![0x50 + reg_code]
+                }
+            }
+            Operand::Immediate(imm) => {
+                let mut bytes = vec![0x68];
+                bytes.extend_from_slice(&(*imm as u32).to_le_bytes());
+                bytes
+            }
             _ => vec![],
         }
     }
 
     fn encode_pop(op: &Spanned<Operand>) -> Vec<u8> {
         match &op.value {
-            Operand::Register(reg) => vec![0x58 + Self::get_register_code(reg)],
+            Operand::Register(reg) => {
+                let reg_code = Self::get_register_code(reg);
+                if reg.starts_with('r') && reg.len() == 2 && reg != "rsp" && reg != "rbp" && reg != "rsi" && reg != "rdi" {
+                    vec![0x41, 0x58 + (reg_code - 8)]
+                } else {
+                    vec![0x58 + reg_code]
+                }
+            }
             _ => vec![],
         }
     }
@@ -150,33 +239,96 @@ impl Encoder {
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x89, 0xC0 + (src_code << 3) + dest_code]
             }
+            (Operand::Register(reg), Operand::Memory(mem)) => {
+                // mov reg, [mem] - destination is register, source is memory
+                Self::encode_mov_reg_from_memory(reg, mem)
+            }
             (Operand::Memory(mem), Operand::Register(reg)) => {
+                // mov [mem], reg - destination is memory, source is register
                 Self::encode_mov_memory_to_reg(mem, reg)
             }
-            (Operand::Register(reg), Operand::Memory(mem)) => {
-                Self::encode_mov_reg_to_memory(reg, mem)
+            (Operand::Memory(mem), Operand::Immediate(imm)) => {
+                Self::encode_mov_memory_imm(mem, *imm)
             }
             _ => vec![],
         }
     }
 
+    fn encode_mov_reg_from_memory(reg: &str, mem: &MemoryAddress) -> Vec<u8> {
+        let reg_code = Self::get_register_code(reg);
+        let base_code = Self::get_register_code(&mem.base);
+        let mut bytes = vec![0x48, 0x8B];  // 0x8B is correct
+        
+        let modrm = if mem.displacement == 0 {
+            0x00 | (reg_code << 3) | base_code
+        } else {
+            0x40 | (reg_code << 3) | base_code
+        };
+        bytes.push(modrm);
+        
+        if mem.displacement != 0 {
+            bytes.push(mem.displacement as u8);
+        }
+        
+        bytes
+    }
+
+    fn encode_mov_memory_imm(mem: &MemoryAddress, imm: i64) -> Vec<u8> {
+        let base_code = Self::get_register_code(&mem.base);
+        let mut bytes = vec![0x48, 0xC7];
+        
+        let modrm = if mem.displacement == 0 {
+            0x00 | (0x00 << 3) | base_code
+        } else {
+            0x40 | (0x00 << 3) | base_code
+        };
+        bytes.push(modrm);
+        
+        if mem.displacement != 0 {
+            bytes.push(mem.displacement as u8);
+        }
+        
+        // For simplicity, encode as 32-bit immediate (most common)
+        // For 64-bit, would need 8 bytes and different opcode
+        bytes.extend_from_slice(&(imm as u32).to_le_bytes());
+        bytes
+    }
+
     fn encode_mov_memory_to_reg(mem: &MemoryAddress, reg: &str) -> Vec<u8> {
         let reg_code = Self::get_register_code(reg);
-        let mut bytes = vec![0x4C, 0x89];
-        let modrm = 0x40 | (reg_code << 3) | 0x04;
+        let base_code = Self::get_register_code(&mem.base);
+        let mut bytes = vec![0x48, 0x89];  // 0x89 is correct for mov rm64, r64
+        
+        let modrm = if mem.displacement == 0 {
+            0x00 | (reg_code << 3) | base_code
+        } else {
+            0x40 | (reg_code << 3) | base_code
+        };
         bytes.push(modrm);
-        bytes.push(0x24);
-        bytes.push(mem.displacement as u8);
+        
+        if mem.displacement != 0 {
+            bytes.push(mem.displacement as u8);
+        }
+        
         bytes
     }
 
     fn encode_mov_reg_to_memory(reg: &str, mem: &MemoryAddress) -> Vec<u8> {
         let reg_code = Self::get_register_code(reg);
-        let mut bytes = vec![0x4C, 0x8B];
-        let modrm = 0x40 | (reg_code << 3) | 0x04;
+        let base_code = Self::get_register_code(&mem.base);
+        let mut bytes = vec![0x48, 0x89];
+        
+        let modrm = if mem.displacement == 0 {
+            0x00 | (reg_code << 3) | base_code
+        } else {
+            0x40 | (reg_code << 3) | base_code
+        };
         bytes.push(modrm);
-        bytes.push(0x24);
-        bytes.push(mem.displacement as u8);
+        
+        if mem.displacement != 0 {
+            bytes.push(mem.displacement as u8);
+        }
+        
         bytes
     }
 
@@ -213,6 +365,24 @@ impl Encoder {
                     bytes
                 }
             }
+            (Operand::Memory(mem), Operand::Immediate(imm)) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x83];
+                
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x00 << 3) | base_code
+                } else {
+                    0x40 | (0x00 << 3) | base_code
+                };
+                bytes.push(modrm);
+                
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                
+                bytes.push(*imm as u8);
+                bytes
+            }
             _ => vec![],
         }
     }
@@ -223,6 +393,31 @@ impl Encoder {
                 let dest_code = Self::get_register_code(dest_reg);
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x31, 0xC0 + (src_code << 3) + dest_code]
+            }
+            (Operand::Register(reg), Operand::Immediate(imm)) => {
+                let reg_code = Self::get_register_code(reg);
+                if *imm >= -128 && *imm <= 127 {
+                    vec![0x48, 0x83, 0xF0 + reg_code, *imm as u8]
+                } else {
+                    let mut bytes = vec![0x48, 0x81, 0xF0 + reg_code];
+                    bytes.extend_from_slice(&imm.to_le_bytes());
+                    bytes
+                }
+            }
+            (Operand::Memory(mem), Operand::Register(reg)) => {
+                let reg_code = Self::get_register_code(reg);
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x31];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (reg_code << 3) | base_code
+                } else {
+                    0x40 | (reg_code << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes
             }
             _ => vec![],
         }
@@ -235,6 +430,46 @@ impl Encoder {
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x21, 0xC0 + (src_code << 3) + dest_code]
             }
+            (Operand::Register(reg), Operand::Immediate(imm)) => {
+                let reg_code = Self::get_register_code(reg);
+                if *imm >= -128 && *imm <= 127 {
+                    vec![0x48, 0x83, 0xE0 + reg_code, *imm as u8]
+                } else {
+                    let mut bytes = vec![0x48, 0x81, 0xE0 + reg_code];
+                    bytes.extend_from_slice(&imm.to_le_bytes());
+                    bytes
+                }
+            }
+            (Operand::Memory(mem), Operand::Immediate(imm)) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x83];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x04 << 3) | base_code
+                } else {
+                    0x40 | (0x04 << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes.push(*imm as u8);
+                bytes
+            }
+            (Operand::Memory(mem), Operand::Register(reg)) => {
+                let reg_code = Self::get_register_code(reg);
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x21];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (reg_code << 3) | base_code
+                } else {
+                    0x40 | (reg_code << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes
+            }
             _ => vec![],
         }
     }
@@ -245,6 +480,47 @@ impl Encoder {
                 let dest_code = Self::get_register_code(dest_reg);
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x09, 0xC0 + (src_code << 3) + dest_code]
+            }
+            (Operand::Register(reg), Operand::Immediate(imm)) => {
+                let reg_code = Self::get_register_code(reg);
+                println!("imm={}, fits 8-bit={}", imm, *imm >= -128 && *imm <= 127);
+                if *imm >= -128 && *imm <= 127 {
+                    vec![0x48, 0x83, 0xC8 + reg_code, *imm as u8]
+                } else {
+                    let mut bytes = vec![0x48, 0x81, 0xC8 + reg_code];
+                    bytes.extend_from_slice(&imm.to_le_bytes());
+                    bytes
+                }
+            }
+            (Operand::Memory(mem), Operand::Immediate(imm)) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x83];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x01 << 3) | base_code
+                } else {
+                    0x40 | (0x01 << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes.push(*imm as u8);
+                bytes
+            }
+            (Operand::Memory(mem), Operand::Register(reg)) => {
+                let reg_code = Self::get_register_code(reg);
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x09];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (reg_code << 3) | base_code
+                } else {
+                    0x40 | (reg_code << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes
             }
             _ => vec![],
         }
@@ -294,6 +570,20 @@ impl Encoder {
                 let reg_code = Self::get_register_code(reg);
                 vec![0x48, 0xF7, 0xD8 + reg_code]
             }
+            Operand::Memory(mem) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0xF7];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x03 << 3) | base_code
+                } else {
+                    0x40 | (0x03 << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes
+            }
             _ => vec![],
         }
     }
@@ -303,6 +593,20 @@ impl Encoder {
             Operand::Register(reg) => {
                 let reg_code = Self::get_register_code(reg);
                 vec![0x48, 0xF7, 0xD0 + reg_code]
+            }
+            Operand::Memory(mem) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0xF7];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x02 << 3) | base_code
+                } else {
+                    0x40 | (0x02 << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes
             }
             _ => vec![],
         }
@@ -331,6 +635,27 @@ impl Encoder {
                 let dest_code = Self::get_register_code(dest_reg);
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x85, 0xC0 + (src_code << 3) + dest_code]
+            }
+            (Operand::Register(reg), Operand::Immediate(imm)) => {
+                let reg_code = Self::get_register_code(reg);
+                let mut bytes = vec![0x48, 0xF7, 0xC0 + reg_code];
+                bytes.extend_from_slice(&imm.to_le_bytes());
+                bytes
+            }
+            (Operand::Memory(mem), Operand::Immediate(imm)) => {
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0xF7];
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (0x00 << 3) | base_code
+                } else {
+                    0x40 | (0x00 << 3) | base_code
+                };
+                bytes.push(modrm);
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                bytes.extend_from_slice(&imm.to_le_bytes());
+                bytes
             }
             _ => vec![],
         }
@@ -424,7 +749,7 @@ impl Encoder {
 
     fn encode_enter(imm16: &Spanned<Operand>, imm8: &Spanned<Operand>) -> Vec<u8> {
         match (&imm16.value, &imm8.value) {
-            (Operand::Immediate(nest_level), Operand::Immediate(alloc_bytes)) => {
+            (Operand::Immediate(alloc_bytes), Operand::Immediate(nest_level)) => {
                 let mut bytes = vec![0xC8];
                 bytes.extend_from_slice(&(*alloc_bytes as u16).to_le_bytes());
                 bytes.push(*nest_level as u8);
@@ -462,6 +787,24 @@ impl Encoder {
                 let dest_code = Self::get_register_code(dest_reg);
                 let src_code = Self::get_register_code(src_reg);
                 vec![0x48, 0x87, 0xC0 + (src_code << 3) + dest_code]
+            }
+            (Operand::Memory(mem), Operand::Register(reg)) => {
+                let reg_code = Self::get_register_code(reg);
+                let base_code = Self::get_register_code(&mem.base);
+                let mut bytes = vec![0x48, 0x87];
+                
+                let modrm = if mem.displacement == 0 {
+                    0x00 | (reg_code << 3) | base_code
+                } else {
+                    0x40 | (reg_code << 3) | base_code
+                };
+                bytes.push(modrm);
+                
+                if mem.displacement != 0 {
+                    bytes.push(mem.displacement as u8);
+                }
+                
+                bytes
             }
             _ => vec![],
         }
@@ -651,7 +994,7 @@ impl Encoder {
             "scasw" => vec![0x48, 0x66, 0xAF],
             "scasd" => vec![0x48, 0xAF],
             "scasq" => vec![0x48, 0xAF],
-            "stosb" => vec![0x48, 0xAA],
+            "stosb" => vec![0xAA],
             "stosw" => vec![0x48, 0x66, 0xAB],
             "stosd" => vec![0x48, 0xAB],
             "stosq" => vec![0x48, 0xAB],
@@ -674,6 +1017,7 @@ impl Encoder {
 
     fn get_register_code(reg: &str) -> u8 {
         match reg {
+            // General purpose registers
             "rax" | "eax" | "ax" | "al" => 0,
             "rcx" | "ecx" | "cx" | "cl" => 1,
             "rdx" | "edx" | "dx" | "dl" => 2,
@@ -684,6 +1028,51 @@ impl Encoder {
             "rdi" | "edi" | "di" | "dil" => 7,
             "r8" => 8, "r9" => 9, "r10" => 10, "r11" => 11,
             "r12" => 12, "r13" => 13, "r14" => 14, "r15" => 15,
+            
+            // SIMD registers
+            "xmm0" => 0, "xmm1" => 1, "xmm2" => 2, "xmm3" => 3,
+            "xmm4" => 4, "xmm5" => 5, "xmm6" => 6, "xmm7" => 7,
+            "xmm8" => 8, "xmm9" => 9, "xmm10" => 10, "xmm11" => 11,
+            "xmm12" => 12, "xmm13" => 13, "xmm14" => 14, "xmm15" => 15,
+            
+            "ymm0" => 0, "ymm1" => 1, "ymm2" => 2, "ymm3" => 3,
+            "ymm4" => 4, "ymm5" => 5, "ymm6" => 6, "ymm7" => 7,
+            "ymm8" => 8, "ymm9" => 9, "ymm10" => 10, "ymm11" => 11,
+            "ymm12" => 12, "ymm13" => 13, "ymm14" => 14, "ymm15" => 15,
+            
+            "zmm0" => 0, "zmm1" => 1, "zmm2" => 2, "zmm3" => 3,
+            "zmm4" => 4, "zmm5" => 5, "zmm6" => 6, "zmm7" => 7,
+            "zmm8" => 8, "zmm9" => 9, "zmm10" => 10, "zmm11" => 11,
+            "zmm12" => 12, "zmm13" => 13, "zmm14" => 14, "zmm15" => 15,
+            "zmm16" => 16, "zmm17" => 17, "zmm18" => 18, "zmm19" => 19,
+            "zmm20" => 20, "zmm21" => 21, "zmm22" => 22, "zmm23" => 23,
+            "zmm24" => 24, "zmm25" => 25, "zmm26" => 26, "zmm27" => 27,
+            "zmm28" => 28, "zmm29" => 29, "zmm30" => 30, "zmm31" => 31,
+            
+            // Control registers
+            "cr0" => 0, "cr1" => 1, "cr2" => 2, "cr3" => 3,
+            "cr4" => 4, "cr5" => 5, "cr6" => 6, "cr7" => 7,
+            "cr8" => 8, "cr9" => 9, "cr10" => 10, "cr11" => 11,
+            "cr12" => 12, "cr13" => 13, "cr14" => 14, "cr15" => 15,
+            
+            // Debug registers
+            "dr0" => 0, "dr1" => 1, "dr2" => 2, "dr3" => 3,
+            "dr4" => 4, "dr5" => 5, "dr6" => 6, "dr7" => 7,
+            "dr8" => 8, "dr9" => 9, "dr10" => 10, "dr11" => 11,
+            "dr12" => 12, "dr13" => 13, "dr14" => 14, "dr15" => 15,
+            
+            // Segment registers
+            "es" => 0, "cs" => 1, "ss" => 2, "ds" => 3,
+            "fs" => 4, "gs" => 5,
+            
+            // Test registers (obsolete, but some CPUs)
+            "tr0" => 0, "tr1" => 1, "tr2" => 2, "tr3" => 3,
+            "tr4" => 4, "tr5" => 5, "tr6" => 6, "tr7" => 7,
+            
+            // MMX registers
+            "mm0" => 0, "mm1" => 1, "mm2" => 2, "mm3" => 3,
+            "mm4" => 4, "mm5" => 5, "mm6" => 6, "mm7" => 7,
+            
             _ => panic!("Unknown register: {}", reg),
         }
     }

@@ -2,6 +2,31 @@ use core::{iter::Peekable, str::Chars};
 
 use super::token::{Token, Location, Spanned};
 
+pub struct LexerErrors(pub Vec<LexerError>);
+
+impl std::fmt::Display for LexerErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for err in &self.0 {
+            writeln!(f, "{}", err)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for LexerErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
+impl std::error::Error for LexerErrors {}
+
+impl std::fmt::Display for LexerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}: {}", self.line, self.col, self.message)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LexerError {
     pub message: String,
@@ -24,7 +49,7 @@ impl<'a> Lexer<'a> {
         }
     }
     
-    pub fn tokenize(mut self) -> (Vec<Spanned<Token>>, Vec<LexerError>) {
+    pub fn tokenize(mut self) -> Result<Vec<Spanned<Token>>, LexerErrors> {
         let mut tokens = Vec::new();
         let mut errors = Vec::new();
         
@@ -39,12 +64,16 @@ impl<'a> Lexer<'a> {
                 }
                 Err(err) => {
                     errors.push(err);
-                    self.skip_to_next_line();
+                    self.skip_line();
                 }
             }
         }
+
+        if !errors.is_empty() {
+            return Err(LexerErrors(errors));
+        }
         
-        (tokens, errors)
+        Ok(tokens)
     }
             
     fn next_token(&mut self) -> Option<Result<Spanned<Token>, LexerError>> {
@@ -61,7 +90,16 @@ impl<'a> Lexer<'a> {
         let start_loc = self.position.clone();
         let next_char = *self.source.peek()?;
         
-        let token = match next_char {
+        let token = self.parse_char(next_char, &start_loc);
+        
+        Some(match token {
+            Ok(token) => Ok(Spanned { value: token, location: start_loc }),
+            Err(err) => Err(err),
+        })
+    }
+
+    fn parse_char(&mut self, char: char, start_loc: &Location) -> Result<Token, LexerError> {
+        match char {
             '[' => self.single_char_token(Token::OpenBracket),
             ']' => self.single_char_token(Token::CloseBracket),
             ',' => self.single_char_token(Token::Comma),
@@ -82,7 +120,12 @@ impl<'a> Lexer<'a> {
             '#' => self.single_char_token(Token::Hash),
             ';' => {
                 self.skip_line();
-                return self.next_token();
+                self.next_token().ok_or_else(|| LexerError {
+                    message: "EOF after comment".to_string(),
+                    line: start_loc.line,
+                    col: start_loc.col,
+                })??;
+                unreachable!()
             }
             '\n' => {
                 self.source.next();
@@ -94,17 +137,12 @@ impl<'a> Lexer<'a> {
             _ => {
                 self.source.next();
                 Err(LexerError {
-                    message: format!("Unexpected character: '{}'", next_char),
+                    message: format!("Unexpected character: '{}'", char),
                     line: start_loc.line,
                     col: start_loc.col,
                 })
             }
-        };
-        
-        Some(match token {
-            Ok(token) => Ok(Spanned { value: token, location: start_loc }),
-            Err(err) => Err(err),
-        })
+        }
     }
 
     fn single_char_token(&mut self, token: Token) -> Result<Token, LexerError> {
@@ -119,108 +157,41 @@ impl<'a> Lexer<'a> {
         while let Some(&c) = self.source.peek() {
             if c.is_alphanumeric() || c == '_' || (c == 'x' && ident == "0") {
                 ident.push(c);
-                self.source.next();
-                self.position.col += 1;
+                self.advance();
             } else {
                 break;
             }
         }
         
         if ident.starts_with("0x") || ident.starts_with("0X") {
-            let num_str = &ident[2..];
-            if num_str.chars().all(|c| c.is_ascii_hexdigit()) {
-                let value = i64::from_str_radix(num_str, 16)
-                    .map_err(|_| LexerError {
-                        message: format!("Invalid hex number: {}", ident),
-                        line: start_pos.line,
-                        col: start_pos.col,
-                    })?;
-                return Ok(Token::Immediate(value));
-            }
+            let val = i64::from_str_radix(&ident[2..], 16)
+                .map_err(|_| LexerError {
+                    message: format!("Invalid hex: {}", ident),
+                    line: start_pos.line,
+                    col: start_pos.col,
+                })?;
+            return Ok(Token::Immediate(val));
         }
         
-        if let Ok(value) = ident.parse::<i64>() {
-            return Ok(Token::Immediate(value));
+        if let Ok(val) = ident.parse::<i64>() {
+            return Ok(Token::Immediate(val));
         }
         
-        match ident.as_str() {
-            "lock" => Ok(Token::Lock),
-            "rep" => Ok(Token::Rep),
-            "repne" | "repnz" => Ok(Token::Repne),
-            "rax" | "rcx" | "rdx" | "rbx" | "rsp" | "rbp" | "rsi" | "rdi" => Ok(Token::Register(ident)),
-            "r8" | "r9" | "r10" | "r11" | "r12" | "r13" | "r14" | "r15" => Ok(Token::Register(ident)),
-            "eax" | "ecx" | "edx" | "ebx" | "esp" | "ebp" | "esi" | "edi" => Ok(Token::Register(ident)),
-            "ax" | "cx" | "dx" | "bx" | "sp" | "bp" | "si" | "di" => Ok(Token::Register(ident)),
-            "al" | "cl" | "dl" | "bl" | "ah" | "ch" | "dh" | "bh" => Ok(Token::Register(ident)),
+        if let Some(token) = Token::from_ident(&ident) {
+            Ok(token)
+        } else {
+            Ok(Token::Label(ident))
+        }
+    }
 
-            _ if ident.starts_with('r') && ident.len() == 2 && ident[1..].parse::<u8>().is_ok() => {
-                Ok(Token::Register(ident))
+    fn advance(&mut self) {
+        if let Some(c) = self.source.next() {
+            if c == '\n' {
+                self.position.line += 1;
+                self.position.col = 1;
+            } else {
+                self.position.col += 1;
             }
-            _ if ident.starts_with("xmm") && ident.len() > 3 => {
-                let num = &ident[3..];
-                if num.parse::<u8>().is_ok() {
-                    Ok(Token::XmmRegister(ident))
-                } else {
-                    Ok(Token::Label(ident))
-                }
-            }
-            _ if ident.starts_with("ymm") && ident.len() > 3 => {
-                let num = &ident[3..];
-                if num.parse::<u8>().is_ok() {
-                    Ok(Token::YmmRegister(ident))
-                } else {
-                    Ok(Token::Label(ident))
-                }
-            }
-            _ if ident.starts_with("zmm") && ident.len() > 3 => {
-                let num = &ident[3..];
-                if num.parse::<u8>().is_ok() && num.parse::<u8>().unwrap() <= 31 {
-                    Ok(Token::ZmmRegister(ident))
-                } else {
-                    Ok(Token::Label(ident))
-                }
-            }
-            _ if ident.starts_with("k") && ident.len() > 1 => {
-                let num = &ident[1..];
-                if num.parse::<u8>().is_ok() && num.parse::<u8>().unwrap() <= 7 {
-                    Ok(Token::Register(ident))
-                } else {
-                    Ok(Token::Label(ident))
-                }
-            }
-            "syscall" | "sysenter" | "sysexit" | "ret" | "nop" | "int3" | "hlt" | "cpuid" | "rdtsc" => Ok(Token::Mnemonic(ident)),
-            "push" | "pop" | "mov" | "sub" | "add" | "xor" | "or" | "and" | "inc" | "dec" | "neg" | "not" => {
-                Ok(Token::Mnemonic(ident))
-            }
-            "jmp" | "je" | "jne" | "jz" | "jnz" | "jg" | "jl" | "jge" | "jle" | "ja" | "jb" | "call" => {
-                Ok(Token::Mnemonic(ident))
-            }
-            "cmp" | "test" | "lea" | "enter" | "leave" => Ok(Token::Mnemonic(ident)),
-            "movsx" | "movzx" | "xchg" => Ok(Token::Mnemonic(ident)),
-            "mul" | "imul" | "div" | "idiv" => Ok(Token::Mnemonic(ident)),
-            "shl" | "shr" | "sar" | "sal" | "rol" | "ror" | "rcl" | "rcr" => Ok(Token::Mnemonic(ident)),
-            "bt" | "bts" | "btr" | "btc" => Ok(Token::Mnemonic(ident)),
-            "bsf" | "bsr" | "popcnt" | "lzcnt" | "tzcnt" => Ok(Token::Mnemonic(ident)),
-            "cmove" | "cmovz" | "cmovne" | "cmovnz" | "cmovg" | "cmovge" | "cmovl" | "cmovle" |
-            "cmova" | "cmovae" | "cmovb" | "cmovbe" | "cmovs" | "cmovns" => Ok(Token::Mnemonic(ident)),
-            "movsb" | "movsw" | "movsd" | "movsq" => Ok(Token::Mnemonic(ident)),
-            "cmpsb" | "cmpsw" | "cmpsd" | "cmpsq" => Ok(Token::Mnemonic(ident)),
-            "scasb" | "scasw" | "scasd" | "scasq" => Ok(Token::Mnemonic(ident)),
-            "stosb" | "stosw" | "stosd" | "stosq" => Ok(Token::Mnemonic(ident)),
-            "lodsb" | "lodsw" | "lodsd" | "lodsq" => Ok(Token::Mnemonic(ident)),
-            "mfence" | "lfence" | "sfence" => Ok(Token::Mnemonic(ident)),
-            "movsd" | "movss" | "movaps" | "movups" | "movupd" | "movapd" => Ok(Token::Mnemonic(ident)),
-            "addsd" | "addss" | "addpd" | "addps" => Ok(Token::Mnemonic(ident)),
-            "subsd" | "subss" | "subpd" | "subps" => Ok(Token::Mnemonic(ident)),
-            "mulsd" | "mulss" | "mulpd" | "mulps" => Ok(Token::Mnemonic(ident)),
-            "divsd" | "divss" | "divpd" | "divps" => Ok(Token::Mnemonic(ident)),
-            "sqrtpd" | "sqrtps" | "sqrtsd" | "sqrtss" => Ok(Token::Mnemonic(ident)),
-            "vaddpd" | "vsubpd" | "vmulpd" | "vdivpd" => Ok(Token::Mnemonic(ident)),
-            "vaddps" | "vsubps" | "vmulps" | "vdivps" => Ok(Token::Mnemonic(ident)),
-            "vmovsd" | "vmovss" | "vmovapd" | "vmovaps" => Ok(Token::Mnemonic(ident)),
-            "vmovdqa" | "vmovdqu" | "vmovdqa32" | "vmovdqa64" => Ok(Token::Mnemonic(ident)),
-            "vpaddd" | "vpsubd" | "vpmulld" | "vpand" | "vpor" | "vpxor" => Ok(Token::Mnemonic(ident)),
-            _ => Ok(Token::Label(ident)),
         }
     }
     
@@ -251,16 +222,12 @@ impl<'a> Lexer<'a> {
             self.source.next();
         }
     }
+}
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Result<Spanned<Token>, LexerError>;
     
-    fn skip_to_next_line(&mut self) {
-        while let Some(&c) = self.source.peek() {
-            if c == '\n' {
-                self.position.line += 1;
-                self.position.col = 1;
-                self.source.next();
-                break;
-            }
-            self.source.next();
-        }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
     }
 }

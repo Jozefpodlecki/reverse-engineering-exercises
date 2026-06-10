@@ -1,34 +1,131 @@
-use crate::ast::{ConditionCode, Prefix};
-use crate::parser::token;
+use std::collections::HashMap;
 
-use super::token::{Token, Spanned};
+use crate::ast::{ConditionCode, Prefix};
+use crate::parser::mnemonic::Mnemonic;
+use crate::{Lexer, Location, ParserError, Spanned, Token};
+
 use super::ast::{Instruction, Operand, MemoryAddress};
 
-pub struct Parser {
-    tokens: Vec<Spanned<Token>>,
-    index: usize,
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
+    current: Option<Spanned<Token>>,
+    peeked: Option<Spanned<Token>>,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Spanned<Token>>) -> Self {
-        Self { tokens, index: 0 }
+impl<'a> Parser<'a> {
+    pub fn new(source: &'a str, source_name: &'a str) -> Self {
+        let lexer = Lexer::new(source, source_name);
+        let mut parser = Self {
+            lexer,
+            current: None,
+            peeked: None,
+        };
+        parser.advance();
+        parser
     }
-    
-    pub fn parse(&mut self) -> Result<Vec<Instruction>, (String, usize, usize)> {
+
+    fn advance(&mut self) {
+        if let Some(peeked) = self.peeked.take() {
+            self.current = Some(peeked);
+            return;
+        }
+
+        match self.lexer.next() {
+            Some(Ok(token)) => {
+                if matches!(token.value, Token::Eof) {
+                    self.current = None;
+                } else {
+                    self.current = Some(token);
+                }
+            }
+            Some(Err(err)) => {
+                self.current = None;
+            }
+            None => {
+                self.current = None;
+            }
+        }
+    }
+
+    fn peek(&mut self) -> Option<&Spanned<Token>> {
+        if self.peeked.is_none() && self.current.is_some() {
+            match self.lexer.next() {
+                Some(Ok(token)) => self.peeked = Some(token),
+                Some(Err(_)) => {}
+                None => {}
+            }
+        }
+        self.peeked.as_ref().or(self.current.as_ref())
+    }
+
+    fn current_location(&self) -> Location {
+        self.current.as_ref().map(|t| t.location.clone()).unwrap_or(Location { line: 0, col: 0 })
+    }
+
+    fn expect(&mut self, expected: Token) -> Result<(), ParserError> {
+        match self.peek() {
+            Some(token) if token.value == expected => {
+                self.advance();
+                Ok(())
+            }
+            Some(token) => {
+                let loc = token.location.clone();
+                 Err(ParserError::ExpectedToken {
+                    expected,
+                    found: token.value.clone(),
+                    line: loc.line,
+                    col: loc.col,
+                })
+            }
+            None => {
+                let loc = self.current_location();
+                Err(ParserError::UnexpectedEof {
+                    expected,
+                    line: loc.line,
+                    col: loc.col,
+                })
+            }
+        }
+    }
+
+    fn expect_comma(&mut self) -> Result<(), ParserError> {
+        self.expect(Token::Comma)
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Instruction>, ParserError> {
         let mut instructions = Vec::new();
-        
         while let Some(instr) = self.parse_instruction()? {
             instructions.push(instr);
         }
-        
         Ok(instructions)
     }
 
-    fn parse_instruction(&mut self) -> Result<Option<Instruction>, (String, usize, usize)> {
+    pub fn parse_with_labels(&mut self) -> Result<(Vec<Instruction>, HashMap<String, usize>), ParserError> {
+        let mut instructions = Vec::new();
+        let mut labels = HashMap::new();
+        let mut current_offset = 0usize;
+
+        while let Some(instr) = self.parse_instruction()? {
+            match instr {
+                Instruction::Label(name) => {
+                    labels.insert(name, current_offset);
+                }
+                _ => {
+                    let size = instr.estimate_size();
+                    instructions.push(instr);
+                    current_offset += size;
+                }
+            }
+        }
+
+        Ok((instructions, labels))
+    }
+
+    fn parse_instruction(&mut self) -> Result<Option<Instruction>, ParserError> {
         let mut prefixes = Vec::new();
-        
+
         while let Some(token) = self.peek() {
-            match token {
+            match token.value {
                 Token::Lock => {
                     prefixes.push(Prefix::Lock);
                     self.advance();
@@ -44,493 +141,529 @@ impl Parser {
                 _ => break,
             }
         }
-        
-        let token = match self.tokens.get(self.index) {
-            Some(t) => t.value.clone(),
-            None => Token::Eof,
-        };
-        
-        if matches!(token, Token::Eof) {
-            return Ok(None);
-        }
-    
-        let instr = match self.parse_token(token)? {
-            Some(i) => i,
+
+        let token = match self.current.clone() {
+            Some(t) => t,
             None => return Ok(None),
         };
-        
+
+        if matches!(token.value, Token::Eof) {
+            return Ok(None);
+        }
+
+        let instr = self.parse_token(token)?;
+
         if prefixes.is_empty() {
             Ok(Some(instr))
         } else {
             Ok(Some(Instruction::Prefixed(prefixes, Box::new(instr))))
         }
     }
-    
-    fn parse_token(&mut self, token: Token) -> Result<Option<Instruction>, (String, usize, usize)> {
 
-        match token {
-            Token::Mnemonic(mnemonic) => {
-                let start_loc = self.current_location();
-                self.advance();
-                
-                let instr = match mnemonic.as_str() {
-                    "enter" => {
-                        let imm16 = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let imm8 = self.parse_operand()?;
-                        Instruction::Enter(imm16, imm8)
-                    }
-                    "leave" => Instruction::Leave,
-
-                    "movsx" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movsx(dest, src)
-                    }
-                    "movzx" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movzx(dest, src)
-                    }
-                    "xchg" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Xchg(dest, src)
-                    }
-
-                    "mul" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Mul(op)
-                    }
-                    "imul" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Imul(op)
-                    }
-                    "div" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Div(op)
-                    }
-                    "idiv" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Idiv(op)
-                    }
-
-                    "shl" | "sal" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Shl(dest, count)
-                    }
-                    "shr" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Shr(dest, count)
-                    }
-                    "sar" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Sar(dest, count)
-                    }
-                    "rol" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Rol(dest, count)
-                    }
-                    "ror" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Ror(dest, count)
-                    }
-                    "rcl" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Rcl(dest, count)
-                    }
-                    "rcr" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let count = self.parse_operand()?;
-                        Instruction::Rcr(dest, count)
-                    }
-
-                    "bt" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Bt(dest, src)
-                    }
-                    "bts" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Bts(dest, src)
-                    }
-                    "btr" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Btr(dest, src)
-                    }
-                    "btc" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Btc(dest, src)
-                    }
-
-                    "bsf" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Bsf(dest, src)
-                    }
-                    "bsr" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Bsr(dest, src)
-                    }
-                    "popcnt" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Popcnt(dest, src)
-                    }
-                    "lzcnt" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Lzcnt(dest, src)
-                    }
-                    "tzcnt" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Tzcnt(dest, src)
-                    }
-
-                    "movsb" => Instruction::Movsb,
-                    "movsw" => Instruction::Movsw,
-                    "movsd" => {
-                        if let Some(Token::XmmRegister(_)) = self.peek() {
-                            // SSE movsd xmm, xmm
-                            let dest = self.parse_operand()?;
-                            self.expect_comma()?;
-                            let src = self.parse_operand()?;
-                            Instruction::Movsd(dest, src)
-                        } else {
-                            Instruction::Movs
-                        }
-                    }
-                    "movsq" => Instruction::Movsq,
-                    "cmpsb" => Instruction::Cmpsb,
-                    "cmpsw" => Instruction::Cmpsw,
-                    "cmpsd" => Instruction::Cmpsd,
-                    "cmpsq" => Instruction::Cmpsq,
-                    "scasb" => Instruction::Scasb,
-                    "scasw" => Instruction::Scasw,
-                    "scasd" => Instruction::Scasd,
-                    "scasq" => Instruction::Scasq,
-                    "stosb" => Instruction::Stosb,
-                    "stosw" => Instruction::Stosw,
-                    "stosd" => Instruction::Stosd,
-                    "stosq" => Instruction::Stosq,
-                    "lodsb" => Instruction::Lodsb,
-                    "lodsw" => Instruction::Lodsw,
-                    "lodsd" => Instruction::Lodsd,
-                    "lodsq" => Instruction::Lodsq,
-
-                    "mfence" => Instruction::Mfence,
-                    "lfence" => Instruction::Lfence,
-                    "sfence" => Instruction::Sfence,
-                    "syscall" => Instruction::Syscall,
-                    "sysenter" => Instruction::Sysenter,
-                    "sysexit" => Instruction::Sysexit,
-                    "ret" => Instruction::Ret,
-                    "nop" => Instruction::Nop,
-                    "int3" => Instruction::Int3,
-                    "hlt" => Instruction::Hlt,
-                    "cpuid" => Instruction::CpuId,
-                    "rdtsc" => Instruction::Rdtsc,
-                    "push" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Push(op)
-                    }
-                    "pop" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Pop(op)
-                    }
-                    "mov" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Mov(dest, src)
-                    }
-                    "sub" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Sub(dest, src)
-                    }
-                    "add" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Add(dest, src)
-                    }
-                    "xor" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Xor(dest, src)
-                    }
-                    "and" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::And(dest, src)
-                    }
-                    "or" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Or(dest, src)
-                    }
-                    "inc" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Inc(op)
-                    }
-                    "dec" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Dec(op)
-                    }
-                    "neg" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Neg(op)
-                    }
-                    "not" => {
-                        let op = self.parse_operand()?;
-                        Instruction::Not(op)
-                    }
-                    "cmp" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmp(dest, src)
-                    }
-                    "test" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Test(dest, src)
-                    }
-                    "lea" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Lea(dest, src)
-                    }
-                    "jmp" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jmp(target)
-                    }
-                    "je" | "jz" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::E, target)
-                    }
-                    "jne" | "jnz" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::NE, target)
-                    }
-                    "jg" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::G, target)
-                    }
-                    "jge" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::GE, target)
-                    }
-                    "jl" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::L, target)
-                    }
-                    "jle" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::LE, target)
-                    }
-                    "ja" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::A, target)
-                    }
-                    "jb" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Jcc(ConditionCode::B, target)
-                    }
-                    "call" => {
-                        let target = self.parse_operand()?;
-                        Instruction::Call(target)
-                    }
-                    "cmove" | "cmovz" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmove(dest, src)
-                    }
-                    "cmovne" | "cmovnz" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovne(dest, src)
-                    }
-                    "cmovg" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovg(dest, src)
-                    }
-                    "cmovge" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovge(dest, src)
-                    }
-                    "cmovl" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovl(dest, src)
-                    }
-                    "cmovle" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovle(dest, src)
-                    }
-                    "cmova" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmova(dest, src)
-                    }
-                    "cmovae" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovae(dest, src)
-                    }
-                    "cmovb" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovb(dest, src)
-                    }
-                    "cmovbe" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovbe(dest, src)
-                    }
-                    "cmovs" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovs(dest, src)
-                    }
-                    "cmovns" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Cmovns(dest, src)
-                    }
-                    "movsd" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movsd(dest, src)
-                    }
-                    "movss" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movss(dest, src)
-                    }
-                    "movaps" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movaps(dest, src)
-                    }
-                    "movapd" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Movapd(dest, src)
-                    }
-                    "addpd" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Addpd(dest, src)
-                    }
-                    "addps" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src = self.parse_operand()?;
-                        Instruction::Addps(dest, src)
-                    }
-                    "vaddpd" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src1 = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src2 = self.parse_operand()?;
-                        Instruction::Vaddpd(dest, src1, src2)
-                    }
-                    "vaddps" => {
-                        let dest = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src1 = self.parse_operand()?;
-                        self.expect_comma()?;
-                        let src2 = self.parse_operand()?;
-                        Instruction::Vaddps(dest, src1, src2)
-                    }
-                    _ => {
-                        let loc = self.current_location();
-                        return Err((format!("Unknown mnemonic: {}", mnemonic), loc.line, loc.col));
-                    }
-                };
-                
-                Ok(Some(instr))
-            }
+    fn parse_token(&mut self, token: Spanned<Token>) -> Result<Instruction, ParserError> {
+        match token.value {
+            Token::Mnemonic(mnemonic) => self.parse_mnemonic(mnemonic),
             Token::Label(name) => {
                 self.advance();
                 self.expect(Token::Colon)?;
-                self.parse_instruction()
+                Ok(Instruction::Label(name))
             }
             _ => {
-                let loc = self.current_location();
-                Err((format!("Expected instruction, got {:?}", token), loc.line, loc.col))
+                let loc = token.location;
+                Err(ParserError::ExpectedInstruction {
+                    found: token.value.clone(),
+                    line: loc.line,
+                    col: loc.col,
+                })
             }
         }
     }
-    
-    fn parse_operand(&mut self) -> Result<Spanned<Operand>, (String, usize, usize)> {
+
+    fn parse_mnemonic(&mut self, mnemonic: Mnemonic) -> Result<Instruction, ParserError> {
+        match mnemonic {
+            Mnemonic::Enter => {
+                let imm16 = self.parse_operand()?;
+                self.expect_comma()?;
+                let imm8 = self.parse_operand()?;
+                Ok(Instruction::Enter(imm16, imm8))
+            }
+            Mnemonic::Leave => Ok(Instruction::Leave),
+            Mnemonic::Movsx => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Movsx(dest, src))
+            }
+            Mnemonic::Movzx => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Movzx(dest, src))
+            }
+            Mnemonic::Xchg => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Xchg(dest, src))
+            }
+            Mnemonic::Mul => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Mul(op))
+            }
+            Mnemonic::Imul => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Imul(op))
+            }
+            Mnemonic::Div => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Div(op))
+            }
+            Mnemonic::Idiv => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Idiv(op))
+            }
+            Mnemonic::Shl | Mnemonic::Sal => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Shl(dest, count))
+            }
+            Mnemonic::Shr => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Shr(dest, count))
+            }
+            Mnemonic::Sar => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Sar(dest, count))
+            }
+            Mnemonic::Rol => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Rol(dest, count))
+            }
+            Mnemonic::Ror => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Ror(dest, count))
+            }
+            Mnemonic::Rcl => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Rcl(dest, count))
+            }
+            Mnemonic::Rcr => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let count = self.parse_operand()?;
+                Ok(Instruction::Rcr(dest, count))
+            }
+            Mnemonic::Bt => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Bt(dest, src))
+            }
+            Mnemonic::Bts => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Bts(dest, src))
+            }
+            Mnemonic::Btr => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Btr(dest, src))
+            }
+            Mnemonic::Btc => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Btc(dest, src))
+            }
+            Mnemonic::Bsf => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Bsf(dest, src))
+            }
+            Mnemonic::Bsr => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Bsr(dest, src))
+            }
+            Mnemonic::Popcnt => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Popcnt(dest, src))
+            }
+            Mnemonic::Lzcnt => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Lzcnt(dest, src))
+            }
+            Mnemonic::Tzcnt => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Tzcnt(dest, src))
+            }
+            Mnemonic::Movsb => Ok(Instruction::Movsb),
+            Mnemonic::Movsw => Ok(Instruction::Movsw),
+            Mnemonic::Movsd => {
+                if let Some(Token::Register(reg)) = self.peek().map(|t| &t.value) {
+                    if reg.is_xmm() {
+                        let dest = self.parse_operand()?;
+                        self.expect_comma()?;
+                        let src = self.parse_operand()?;
+                        Ok(Instruction::Movsd(dest, src))
+                    } else {
+                        Ok(Instruction::Movs)
+                    }
+                } else {
+                    Ok(Instruction::Movs)
+                }
+            }
+            Mnemonic::Movsq => Ok(Instruction::Movsq),
+            Mnemonic::Cmpsb => Ok(Instruction::Cmpsb),
+            Mnemonic::Cmpsw => Ok(Instruction::Cmpsw),
+            Mnemonic::Cmpsd => Ok(Instruction::Cmpsd),
+            Mnemonic::Cmpsq => Ok(Instruction::Cmpsq),
+            Mnemonic::Scasb => Ok(Instruction::Scasb),
+            Mnemonic::Scasw => Ok(Instruction::Scasw),
+            Mnemonic::Scasd => Ok(Instruction::Scasd),
+            Mnemonic::Scasq => Ok(Instruction::Scasq),
+            Mnemonic::Stosb => Ok(Instruction::Stosb),
+            Mnemonic::Stosw => Ok(Instruction::Stosw),
+            Mnemonic::Stosd => Ok(Instruction::Stosd),
+            Mnemonic::Stosq => Ok(Instruction::Stosq),
+            Mnemonic::Lodsb => Ok(Instruction::Lodsb),
+            Mnemonic::Lodsw => Ok(Instruction::Lodsw),
+            Mnemonic::Lodsd => Ok(Instruction::Lodsd),
+            Mnemonic::Lodsq => Ok(Instruction::Lodsq),
+            Mnemonic::Mfence => Ok(Instruction::Mfence),
+            Mnemonic::Lfence => Ok(Instruction::Lfence),
+            Mnemonic::Sfence => Ok(Instruction::Sfence),
+            Mnemonic::Syscall => Ok(Instruction::Syscall),
+            Mnemonic::Sysenter => Ok(Instruction::Sysenter),
+            Mnemonic::Sysexit => Ok(Instruction::Sysexit),
+            Mnemonic::Ret => Ok(Instruction::Ret),
+            Mnemonic::Nop => Ok(Instruction::Nop),
+            Mnemonic::Int3 => Ok(Instruction::Int3),
+            Mnemonic::Hlt => Ok(Instruction::Hlt),
+            Mnemonic::Cpuid => Ok(Instruction::CpuId),
+            Mnemonic::Rdtsc => Ok(Instruction::Rdtsc),
+            Mnemonic::Push => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Push(op))
+            }
+            Mnemonic::Pop => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Pop(op))
+            }
+            Mnemonic::Mov => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Mov(dest, src))
+            }
+            Mnemonic::Sub => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Sub(dest, src))
+            }
+            Mnemonic::Add => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Add(dest, src))
+            }
+            Mnemonic::Xor => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Xor(dest, src))
+            }
+            Mnemonic::And => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::And(dest, src))
+            }
+            Mnemonic::Or => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Or(dest, src))
+            }
+            Mnemonic::Inc => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Inc(op))
+            }
+            Mnemonic::Dec => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Dec(op))
+            }
+            Mnemonic::Neg => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Neg(op))
+            }
+            Mnemonic::Not => {
+                let op = self.parse_operand()?;
+                Ok(Instruction::Not(op))
+            }
+            Mnemonic::Cmp => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmp(dest, src))
+            }
+            Mnemonic::Test => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Test(dest, src))
+            }
+            Mnemonic::Lea => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Lea(dest, src))
+            }
+            Mnemonic::Jmp => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jmp(target))
+            }
+            Mnemonic::Je | Mnemonic::Jz => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::E, target))
+            }
+            Mnemonic::Jne | Mnemonic::Jnz => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::NE, target))
+            }
+            Mnemonic::Jg => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::G, target))
+            }
+            Mnemonic::Jge => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::GE, target))
+            }
+            Mnemonic::Jl => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::L, target))
+            }
+            Mnemonic::Jle => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::LE, target))
+            }
+            Mnemonic::Ja => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::A, target))
+            }
+            Mnemonic::Jb => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Jcc(ConditionCode::B, target))
+            }
+            Mnemonic::Call => {
+                let target = self.parse_operand()?;
+                Ok(Instruction::Call(target))
+            }
+            Mnemonic::Cmove | Mnemonic::Cmovz => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmove(dest, src))
+            }
+            Mnemonic::Cmovne | Mnemonic::Cmovnz => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovne(dest, src))
+            }
+            Mnemonic::Cmovg => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovg(dest, src))
+            }
+            Mnemonic::Cmovge => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovge(dest, src))
+            }
+            Mnemonic::Cmovl => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovl(dest, src))
+            }
+            Mnemonic::Cmovle => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovle(dest, src))
+            }
+            Mnemonic::Cmova => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmova(dest, src))
+            }
+            Mnemonic::Cmovae => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovae(dest, src))
+            }
+            Mnemonic::Cmovb => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovb(dest, src))
+            }
+            Mnemonic::Cmovbe => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovbe(dest, src))
+            }
+            Mnemonic::Cmovs => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovs(dest, src))
+            }
+            Mnemonic::Cmovns => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Cmovns(dest, src))
+            }
+            Mnemonic::Movaps => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Movaps(dest, src))
+            }
+            Mnemonic::Movapd => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Movapd(dest, src))
+            }
+            Mnemonic::Addpd => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Addpd(dest, src))
+            }
+            Mnemonic::Addps => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src = self.parse_operand()?;
+                Ok(Instruction::Addps(dest, src))
+            }
+            Mnemonic::Vaddpd => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src1 = self.parse_operand()?;
+                self.expect_comma()?;
+                let src2 = self.parse_operand()?;
+                Ok(Instruction::Vaddpd(dest, src1, src2))
+            }
+            Mnemonic::Vaddps => {
+                let dest = self.parse_operand()?;
+                self.expect_comma()?;
+                let src1 = self.parse_operand()?;
+                self.expect_comma()?;
+                let src2 = self.parse_operand()?;
+                Ok(Instruction::Vaddps(dest, src1, src2))
+            }
+            Mnemonic::Prefetch => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetch(addr))
+            }
+            Mnemonic::Prefetchnta => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetchnta(addr))
+            }
+            Mnemonic::Prefetcht0 => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetcht0(addr))
+            }
+            Mnemonic::Prefetcht1 => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetcht1(addr))
+            }
+            Mnemonic::Prefetcht2 => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetcht2(addr))
+            }
+            Mnemonic::Prefetchw => {
+                let addr = self.parse_operand()?;
+                Ok(Instruction::Prefetchw(addr))
+            }
+            _ => {
+                let loc = self.current_location();
+                Err(ParserError::UnknownMnemonic {
+                    mnemonic,
+                    line: loc.line,
+                    col: loc.col,
+                })
+            }
+        }
+    }
+
+    fn parse_operand(&mut self) -> Result<Spanned<Operand>, ParserError> {
         let start_loc = self.current_location();
-        
-        let token = match self.peek() {
-            Some(t) => t.clone(),
-            None => Token::Eof,
+
+        let size = match self.peek() {
+            Some(token) if token.value == Token::Byte => {
+                self.advance();
+                Some(1)
+            }
+            Some(token) if token.value == Token::Word => {
+                self.advance();
+                Some(2)
+            }
+            Some(token) if token.value == Token::Dword => {
+                self.advance();
+                Some(4)
+            }
+            Some(token) if token.value == Token::Qword => {
+                self.advance();
+                Some(8)
+            }
+            _ => None,
         };
-        
-        match token {
+
+        let token = match self.current.clone() {
+            Some(t) => t,
+            None => {
+                let loc = self.current_location();
+                return Err(ParserError::UnexpectedEof {
+                    expected: Token::Immediate(0),
+                    line: loc.line,
+                    col: loc.col,
+                })
+            }
+        };
+
+        match token.value {
             Token::Register(reg) => {
                 self.advance();
                 Ok(Spanned {
@@ -545,95 +678,69 @@ impl Parser {
                     location: start_loc,
                 })
             }
+            Token::Label(label) => {
+                self.advance();
+                Ok(Spanned {
+                    value: Operand::Label(label),
+                    location: start_loc,
+                })
+            }
             Token::OpenBracket => {
-                self.parse_memory_address()
+                let mem = self.parse_memory_address()?;
+                Ok(mem)
             }
             _ => {
-                let loc = self.current_location();
-                Err((format!("Expected operand, got {:?}", token), loc.line, loc.col))
+                let loc = token.location;
+                Err(ParserError::ExpectedOperand {
+                    found: Token::Eof,
+                    line: loc.line,
+                    col: loc.col,
+                })
             }
         }
     }
-        
-    fn parse_memory_address(&mut self) -> Result<Spanned<Operand>, (String, usize, usize)> {
+
+    fn parse_memory_address(&mut self) -> Result<Spanned<Operand>, ParserError> {
         let start_loc = self.current_location();
         self.expect(Token::OpenBracket)?;
-        
-        let base = match self.peek() {
-            Some(Token::Register(reg)) => {
-                let reg_clone = reg.clone();
+
+        let base = match self.current.clone() {
+            Some(Spanned { value: Token::Register(reg), .. }) => {
                 self.advance();
-                reg_clone
+                reg
             }
             _ => {
                 let loc = self.current_location();
-                return Err(("Expected base register in memory operand".to_string(), loc.line, loc.col));
+                return Err(ParserError::ExpectedBaseRegister {
+                    line: loc.line,
+                    col: loc.col,
+                })
             }
         };
-        
+
         let mut displacement = 0;
-        
-        let next_is_plus = match self.peek() {
-            Some(Token::Plus) => true,
-            _ => false,
-        };
-        
-        if next_is_plus {
-            self.advance();
-            
-            let imm = match self.peek() {
-                Some(Token::Immediate(imm)) => *imm,
-                _ => {
-                    let loc = self.current_location();
-                    return Err(("Expected displacement after +".to_string(), loc.line, loc.col));
-                }
-            };
-            self.advance();
-            displacement = imm;
+        let mut sign = 1;
+
+        if let Some(token) = self.peek() {
+            if token.value == Token::Plus {
+                self.advance();
+                sign = 1;
+            } else if token.value == Token::Minus {
+                self.advance();
+                sign = -1;
+            }
         }
-        
+
+        if let Some(Spanned { value: Token::Immediate(imm), .. }) = self.current.clone() {
+            self.advance();
+            displacement = sign * imm;
+        }
+
         self.expect(Token::CloseBracket)?;
-        
+
         Ok(Spanned {
             value: Operand::Memory(MemoryAddress { base, displacement }),
             location: start_loc,
         })
-    }
-    
-    fn expect(&mut self, expected: Token) -> Result<(), (String, usize, usize)> {
-        match self.peek() {
-            Some(token) if *token == expected => {
-                self.advance();
-                Ok(())
-            }
-            Some(token) => {
-                let loc = self.current_location();
-                Err((format!("Expected {:?}, got {:?}", expected, token), loc.line, loc.col))
-            }
-            None => {
-                let loc = self.current_location();
-                Err((format!("Expected {:?}, got EOF", expected), loc.line, loc.col))
-            }
-        }
-    }
-    
-    fn expect_comma(&mut self) -> Result<(), (String, usize, usize)> {
-        self.expect(Token::Comma)
-    }
-    
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.index).map(|t| &t.value)
-    }
-    
-    fn advance(&mut self) {
-        if self.index < self.tokens.len() {
-            self.index += 1;
-        }
-    }
-    
-    fn current_location(&self) -> token::Location {
-        self.tokens.get(self.index)
-            .map(|t| t.location.clone())
-            .unwrap_or(token::Location { line: 0, col: 0 })
     }
 }

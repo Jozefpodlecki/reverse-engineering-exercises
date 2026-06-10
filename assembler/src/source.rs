@@ -20,9 +20,7 @@ impl core::fmt::Display for SourceError {
 
 pub trait Source {
     fn get_source(&self) -> Result<String, SourceError>;
-    fn name(&self) -> Option<&str> {
-        None
-    }
+    fn name(&self) -> &str;
 }
 
 impl<T: AsRef<str>> Source for T {
@@ -30,8 +28,8 @@ impl<T: AsRef<str>> Source for T {
         Ok(self.as_ref().to_string())
     }
     
-    fn name(&self) -> Option<&str> {
-        None
+    fn name(&self) -> &str {
+        "<string>"
     }
 }
 
@@ -61,8 +59,8 @@ impl Source for StringSource {
         Ok(self.content.clone())
     }
     
-    fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    fn name(&self) -> &str {
+        "<string>"
     }
 }
 
@@ -90,8 +88,8 @@ impl Source for FileSource {
         Ok(content)
     }
     
-    fn name(&self) -> Option<&str> {
-        self.path.to_str()
+    fn name(&self) -> &str {
+        self.path.to_str().unwrap_or("<file>")
     }
 }
 
@@ -146,7 +144,7 @@ impl Source for LineSource {
         Ok(self.lines.join("\n"))
     }
     
-    fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    fn name(&self) -> &str {
+        self.name.as_deref().unwrap_or_else(|| "<line>")
     }
 }

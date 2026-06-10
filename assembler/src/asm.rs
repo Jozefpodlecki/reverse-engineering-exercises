@@ -1,47 +1,66 @@
+use std::collections::HashMap;
+
 use crate::encoder::x86_64;
 use crate::error::AssemblerError;
 use crate::source::Source;
-use crate::parser::Lexer;
 use crate::parser::Parser;
 
-pub struct Assembler;
+pub struct Assembler {
+    symbol_table: HashMap<String, usize>,
+}
 
 impl Assembler {
     pub fn new() -> Self {
-        Self
+        Self {
+            symbol_table: HashMap::new(),
+        }
     }
     
-    pub fn assemble<S: Source>(&self, source: S) -> Result<Vec<u8>, AssemblerError> {
-        let source_name = source.name().unwrap_or("<source>");
-        let source_str = source.get_source()
-            .map_err(|e| AssemblerError::SourceError(e.to_string()))?;
+    pub fn assemble<S: Source>(&mut self, source: S) -> Result<Vec<u8>, AssemblerError> {
+        let source_name = source.name();
+        let source_str = source.get_source().map_err(|err| AssemblerError::SourceError(err))?;
         
-        let lexer = Lexer::new(&source_str, source_name);
-        let (tokens, lex_errors) = lexer.tokenize();
-        
-        if !lex_errors.is_empty() {
-            let err = &lex_errors[0];
-            return Err(AssemblerError::LexerError(
-                err.message.clone(),
-                err.line,
-                err.col,
-            ));
-        }
-        
-        let mut parser = Parser::new(tokens);
-        let instructions = parser.parse()
-            .map_err(|(msg, line, col)| AssemblerError::ParserError(msg, line, col))?;
+        let mut parser = Parser::new(&source_str, source_name);
+        let (instructions, label_offsets) = parser.parse_with_labels()?;
+        self.symbol_table = label_offsets;
         
         let mut binary = Vec::new();
+        let mut current_offset = 0u64;
+        
         for instr in instructions {
-            binary.extend(x86_64::Encoder::encode(&instr));
+            let encoded = x86_64::Encoder::encode_with_labels(&instr, &self.symbol_table, current_offset);
+            current_offset += encoded.len() as u64;
+            binary.extend(encoded);
         }
         
         Ok(binary)
     }
     
-    pub fn assemble_str(&self, source: &str) -> Result<Vec<u8>, AssemblerError> {
+    pub fn assemble_with_symbols<S: Source>(&mut self, source: S) -> Result<(Vec<u8>, HashMap<String, usize>), AssemblerError> {
+        let source_name = source.name();
+        let source_str = source.get_source().map_err(|err| AssemblerError::SourceError(err))?;
+        
+        let mut parser = Parser::new(&source_str, source_name);
+        let (instructions, label_offsets) = parser.parse_with_labels()?;
+        
+        let mut binary = Vec::new();
+        let mut current_offset = 0u64;
+        
+        for instr in instructions {
+            let encoded = x86_64::Encoder::encode_with_labels(&instr, &label_offsets, current_offset);
+            current_offset += encoded.len() as u64;
+            binary.extend(encoded);
+        }
+        
+        Ok((binary, label_offsets))
+    }
+    
+    pub fn assemble_str(&mut self, source: &str) -> Result<Vec<u8>, AssemblerError> {
         self.assemble(source)
+    }
+    
+    pub fn symbols(&self) -> &HashMap<String, usize> {
+        &self.symbol_table
     }
 }
 

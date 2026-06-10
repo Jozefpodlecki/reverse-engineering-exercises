@@ -7,7 +7,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_simd_movsd() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("movsd xmm0, xmm1").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -18,7 +18,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_simd_movss() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("movss xmm0, [rax]").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -29,7 +29,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_simd_addpd() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("addpd xmm0, xmm1").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -40,7 +40,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_simd_mulps() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("mulps xmm0, xmm1").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -51,7 +51,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_avx_vaddpd() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("vaddpd xmm0, xmm1, xmm2").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -62,7 +62,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_avx2_vmovdqa() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("vmovdqa ymm0, ymm1").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -73,7 +73,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_avx512_vaddpd_zmm() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("vaddpd zmm0, zmm1, zmm2").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -84,7 +84,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_avx512_vmovdqa32() {
-        let assembler = Assembler::new();
+        let mut assembler = Assembler::new();
         let result = assembler.assemble_str("vmovdqa32 zmm0, zmm1").unwrap();
         
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
