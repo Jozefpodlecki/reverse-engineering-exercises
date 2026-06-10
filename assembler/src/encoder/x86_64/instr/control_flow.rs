@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::encoder::EncodingError;
 use crate::encoder::buffer::InstrBuf;
 use crate::encoder::x86_64::modrm::{Mod, ModRM};
@@ -9,6 +7,7 @@ use crate::encoder::x86_64::sib::SIB;
 use crate::parser::ast::Operand;
 use crate::ast::ConditionCode;
 use crate::Spanned;
+use crate::symbol::SymbolResolver;
 
 pub fn jmp(target: &Spanned<Operand>) -> Result<InstrBuf, EncodingError> {
     match &target.value {
@@ -62,10 +61,10 @@ pub fn jmp(target: &Spanned<Operand>) -> Result<InstrBuf, EncodingError> {
     }
 }
 
-pub fn jmp_with_label(target: &str, symbols: &HashMap<String, usize>, offset: u64) -> InstrBuf {
+pub fn jmp_with_label<S: SymbolResolver>(target: &str, symbols: &S, offset: u64) -> InstrBuf {
     let mut buf = InstrBuf::new();
     buf.push(0xE9);
-    if let Some(&addr) = symbols.get(target) {
+    if let Some(addr) = symbols.lookup(target) {
         let rel = (addr as i64) - (offset as i64 + 5);
         buf.push_u32(rel as u32);
     } else {

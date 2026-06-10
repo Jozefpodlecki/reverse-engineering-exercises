@@ -9,7 +9,7 @@ pub mod tests {
 
     // #[test]
     // fn test_multiple_prefixes() {
-    //     let mut assembler = Assembler::new();
+    //     let mut assembler = AssemblerNoSymbols::new();
     //     let result = assembler.assemble_str("lock rep stosb\nret").unwrap();
         
     //     let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
@@ -25,7 +25,7 @@ pub mod tests {
 
     #[test]
     fn test_lock_inc() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("lock inc [rax]").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -35,7 +35,7 @@ pub mod tests {
 
     #[test]
     fn test_lock_add() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("lock add [rbx], 1").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -45,7 +45,7 @@ pub mod tests {
 
     #[test]
     fn test_lock_xchg() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("lock xchg [rcx], rax").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -55,7 +55,7 @@ pub mod tests {
 
     #[test]
     fn test_rep_movsb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rep movsb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -65,7 +65,7 @@ pub mod tests {
 
     #[test]
     fn test_rep_stosb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rep stosb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -75,7 +75,7 @@ pub mod tests {
 
     #[test]
     fn test_rep_stosd() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rep stosd").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -85,7 +85,7 @@ pub mod tests {
 
     #[test]
     fn test_rep_cmpsb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rep cmpsb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -95,7 +95,7 @@ pub mod tests {
 
     #[test]
     fn test_rep_scasb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rep scasb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -105,7 +105,7 @@ pub mod tests {
 
     #[test]
     fn test_repne_scasb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("repne scasb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -115,7 +115,7 @@ pub mod tests {
 
     #[test]
     fn test_repne_cmpsb() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("repne cmpsb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();
@@ -125,7 +125,7 @@ pub mod tests {
 
     #[test]
     fn test_no_prefix() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("stosb").unwrap();
         let mut decoder = iced_x86::Decoder::new(64, &result, DecoderOptions::NONE);
         let instr = decoder.decode();

@@ -41,6 +41,7 @@ impl core::fmt::Display for ImmediateSize {
 
 #[derive(Debug)]
 pub enum EncodingError {
+    Unknown,
     UnsupportedMnemonic(Mnemonic),
     UnsupportedOperand(Operand),
     InvalidRegister(Register),
@@ -62,8 +63,8 @@ pub enum EncodingError {
     ExtraOperands,
 }
 
-impl std::fmt::Display for EncodingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for EncodingError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             EncodingError::UnsupportedMnemonic(m) => write!(f, "Unsupported mnemonic: {:?}", m),
             EncodingError::UnsupportedOperand(op) => write!(f, "Unsupported operand: {:?}", op),
@@ -93,6 +94,7 @@ impl std::fmt::Display for EncodingError {
             }
             EncodingError::MissingOperand(op) => write!(f, "Missing operand: {}", op),
             EncodingError::ExtraOperands => write!(f, "Too many operands"),
+            EncodingError::Unknown => todo!(),
         }
     }
 }

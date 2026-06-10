@@ -8,7 +8,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_syscall() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("syscall").unwrap();
         assert_eq!(result, vec![0x0F, 0x05]);
         assert_ice(&result, iced_x86::Code::Syscall);
@@ -16,7 +16,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_sysenter() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("sysenter").unwrap();
         assert_eq!(result, vec![0x0F, 0x34]);
         assert_ice(&result, iced_x86::Code::Sysenter);
@@ -24,7 +24,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_sysexit() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("sysexit").unwrap();
         assert_eq!(result, vec![0x0F, 0x35]);
         assert_ice(&result, iced_x86::Code::Sysexitd);
@@ -32,7 +32,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_cpuid() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("cpuid").unwrap();
         assert_eq!(result, vec![0x0F, 0xA2]);
         assert_ice(&result, iced_x86::Code::Cpuid);
@@ -40,7 +40,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_rdtsc() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("rdtsc").unwrap();
         assert_eq!(result, vec![0x0F, 0x31]);
         assert_ice(&result, iced_x86::Code::Rdtsc);
@@ -48,7 +48,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_ret() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("ret").unwrap();
         assert_eq!(result, vec![0xC3]);
         assert_ice(&result, iced_x86::Code::Retnq);
@@ -56,7 +56,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_nop() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("nop").unwrap();
         assert_eq!(result, vec![0x90]);
         assert_ice(&result, iced_x86::Code::Nopd);
@@ -64,7 +64,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_hlt() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("hlt").unwrap();
         assert_eq!(result, vec![0xF4]);
         assert_ice(&result, iced_x86::Code::Hlt);
@@ -72,7 +72,7 @@ pub mod tests {
 
     #[test]
     fn test_asm_int3() {
-        let mut assembler = Assembler::new();
+        let mut assembler = AssemblerNoSymbols::new();
         let result = assembler.assemble_str("int3").unwrap();
         assert_eq!(result, vec![0xCC]);
         assert_ice(&result, iced_x86::Code::Int3);

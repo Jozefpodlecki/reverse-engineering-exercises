@@ -1,7 +1,52 @@
+use core::ops::Deref;
+
 #[derive(Debug, Clone, Copy)]
 pub struct InstrBuf {
     bytes: [u8; 15],
     len: u8,
+}
+
+impl Deref for InstrBuf {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl IntoIterator for InstrBuf {
+    type Item = u8;
+    type IntoIter = InstrBufIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        InstrBufIter {
+            buf: self,
+            index: 0,
+        }
+    }
+}
+
+pub struct InstrBufIter {
+    buf: InstrBuf,
+    index: u8,
+}
+
+impl Iterator for InstrBufIter {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.buf.len {
+            return None;
+        }
+        let byte = self.buf.bytes[self.index as usize];
+        self.index += 1;
+        Some(byte)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = (self.buf.len - self.index) as usize;
+        (remaining, Some(remaining))
+    }
 }
 
 impl InstrBuf {
@@ -65,12 +110,26 @@ impl InstrBuf {
         self
     }
 
+    pub fn extend_from_slice(&mut self, other: &[u8]) {
+        let remaining = 15 - self.len as usize;
+        let copy_len = other.len().min(remaining);
+        
+        self.bytes[self.len as usize..self.len as usize + copy_len]
+            .copy_from_slice(&other[..copy_len]);
+        self.len += copy_len as u8;
+    }
+
     pub fn as_slice(&self) -> &[u8] {
         &self.bytes[..self.len as usize]
     }
 
     pub fn len(&self) -> usize {
         self.len as usize
+    }
+
+    #[cfg(feature = "alloc")]
+    pub fn to_vec(&self) -> alloc::vec::Vec<u8> {
+        self.bytes[..self.len as usize].to_vec()
     }
 }
 

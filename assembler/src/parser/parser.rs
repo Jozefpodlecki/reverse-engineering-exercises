@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::ast::{ConditionCode, Prefix};
+use crate::ast::{ConditionCode, Prefix, PrefixSet};
 use crate::parser::mnemonic::Mnemonic;
-use crate::{Lexer, Location, ParserError, Spanned, Token};
+use crate::{Instruction, InstructionKind, Lexer, Location, ParserError, Spanned, Token};
 
-use super::ast::{Instruction, Operand, MemoryAddress};
+use super::ast::{Operand, MemoryAddress};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -106,15 +106,12 @@ impl<'a> Parser<'a> {
         let mut current_offset = 0usize;
 
         while let Some(instr) = self.parse_instruction()? {
-            match instr {
-                Instruction::Label(name) => {
-                    labels.insert(name, current_offset);
-                }
-                _ => {
-                    let size = instr.estimate_size();
-                    instructions.push(instr);
-                    current_offset += size;
-                }
+            if let InstructionKind::Label(name) = &instr.kind {
+                labels.insert(name.clone(), current_offset);
+            } else {
+                let size = instr.estimate_size();
+                instructions.push(instr);
+                current_offset += size;
             }
         }
 
@@ -122,20 +119,20 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_instruction(&mut self) -> Result<Option<Instruction>, ParserError> {
-        let mut prefixes = Vec::new();
+        let mut prefixes = PrefixSet::new();
 
         while let Some(token) = self.peek() {
             match token.value {
                 Token::Lock => {
-                    prefixes.push(Prefix::Lock);
+                    prefixes.set_lock();
                     self.advance();
                 }
                 Token::Rep => {
-                    prefixes.push(Prefix::Rep);
+                    prefixes.set_rep();
                     self.advance();
                 }
                 Token::Repne => {
-                    prefixes.push(Prefix::Repne);
+                    prefixes.set_repne();
                     self.advance();
                 }
                 _ => break,
@@ -151,22 +148,18 @@ impl<'a> Parser<'a> {
             return Ok(None);
         }
 
-        let instr = self.parse_token(token)?;
-
-        if prefixes.is_empty() {
-            Ok(Some(instr))
-        } else {
-            Ok(Some(Instruction::Prefixed(prefixes, Box::new(instr))))
-        }
+        let kind = self.parse_token(token)?;
+        
+        Ok(Some(Instruction::new(prefixes, kind)))
     }
 
-    fn parse_token(&mut self, token: Spanned<Token>) -> Result<Instruction, ParserError> {
+    fn parse_token(&mut self, token: Spanned<Token>) -> Result<InstructionKind, ParserError> {
         match token.value {
             Token::Mnemonic(mnemonic) => self.parse_mnemonic(mnemonic),
             Token::Label(name) => {
                 self.advance();
                 self.expect(Token::Colon)?;
-                Ok(Instruction::Label(name.to_string()))
+                Ok(InstructionKind::Label(name.to_string()))
             }
             _ => {
                 let loc = token.location;
@@ -179,403 +172,403 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_mnemonic(&mut self, mnemonic: Mnemonic) -> Result<Instruction, ParserError> {
+    fn parse_mnemonic(&mut self, mnemonic: Mnemonic) -> Result<InstructionKind, ParserError> {
         match mnemonic {
             Mnemonic::Enter => {
                 let imm16 = self.parse_operand()?;
                 self.expect_comma()?;
                 let imm8 = self.parse_operand()?;
-                Ok(Instruction::Enter(imm16, imm8))
+                Ok(InstructionKind::Enter(imm16, imm8))
             }
-            Mnemonic::Leave => Ok(Instruction::Leave),
+            Mnemonic::Leave => Ok(InstructionKind::Leave),
             Mnemonic::Movsx => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Movsx(dest, src))
+                Ok(InstructionKind::Movsx(dest, src))
             }
             Mnemonic::Movzx => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Movzx(dest, src))
+                Ok(InstructionKind::Movzx(dest, src))
             }
             Mnemonic::Xchg => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Xchg(dest, src))
+                Ok(InstructionKind::Xchg(dest, src))
             }
             Mnemonic::Mul => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Mul(op))
+                Ok(InstructionKind::Mul(op))
             }
             Mnemonic::Imul => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Imul(op))
+                Ok(InstructionKind::Imul(op))
             }
             Mnemonic::Div => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Div(op))
+                Ok(InstructionKind::Div(op))
             }
             Mnemonic::Idiv => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Idiv(op))
+                Ok(InstructionKind::Idiv(op))
             }
             Mnemonic::Shl | Mnemonic::Sal => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Shl(dest, count))
+                Ok(InstructionKind::Shl(dest, count))
             }
             Mnemonic::Shr => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Shr(dest, count))
+                Ok(InstructionKind::Shr(dest, count))
             }
             Mnemonic::Sar => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Sar(dest, count))
+                Ok(InstructionKind::Sar(dest, count))
             }
             Mnemonic::Rol => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Rol(dest, count))
+                Ok(InstructionKind::Rol(dest, count))
             }
             Mnemonic::Ror => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Ror(dest, count))
+                Ok(InstructionKind::Ror(dest, count))
             }
             Mnemonic::Rcl => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Rcl(dest, count))
+                Ok(InstructionKind::Rcl(dest, count))
             }
             Mnemonic::Rcr => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let count = self.parse_operand()?;
-                Ok(Instruction::Rcr(dest, count))
+                Ok(InstructionKind::Rcr(dest, count))
             }
             Mnemonic::Bt => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Bt(dest, src))
+                Ok(InstructionKind::Bt(dest, src))
             }
             Mnemonic::Bts => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Bts(dest, src))
+                Ok(InstructionKind::Bts(dest, src))
             }
             Mnemonic::Btr => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Btr(dest, src))
+                Ok(InstructionKind::Btr(dest, src))
             }
             Mnemonic::Btc => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Btc(dest, src))
+                Ok(InstructionKind::Btc(dest, src))
             }
             Mnemonic::Bsf => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Bsf(dest, src))
+                Ok(InstructionKind::Bsf(dest, src))
             }
             Mnemonic::Bsr => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Bsr(dest, src))
+                Ok(InstructionKind::Bsr(dest, src))
             }
             Mnemonic::Popcnt => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Popcnt(dest, src))
+                Ok(InstructionKind::Popcnt(dest, src))
             }
             Mnemonic::Lzcnt => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Lzcnt(dest, src))
+                Ok(InstructionKind::Lzcnt(dest, src))
             }
             Mnemonic::Tzcnt => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Tzcnt(dest, src))
+                Ok(InstructionKind::Tzcnt(dest, src))
             }
-            Mnemonic::Movsb => Ok(Instruction::Movsb),
-            Mnemonic::Movsw => Ok(Instruction::Movsw),
+            Mnemonic::Movsb => Ok(InstructionKind::Movsb),
+            Mnemonic::Movsw => Ok(InstructionKind::Movsw),
             Mnemonic::Movsd => {
                 if let Some(Token::Register(reg)) = self.peek().map(|t| &t.value) {
                     if reg.is_xmm() {
                         let dest = self.parse_operand()?;
                         self.expect_comma()?;
                         let src = self.parse_operand()?;
-                        Ok(Instruction::Movsd(dest, src))
+                        Ok(InstructionKind::Movsd(dest, src))
                     } else {
-                        Ok(Instruction::Movs)
+                        Ok(InstructionKind::Movs)
                     }
                 } else {
-                    Ok(Instruction::Movs)
+                    Ok(InstructionKind::Movs)
                 }
             }
-            Mnemonic::Movsq => Ok(Instruction::Movsq),
-            Mnemonic::Cmpsb => Ok(Instruction::Cmpsb),
-            Mnemonic::Cmpsw => Ok(Instruction::Cmpsw),
-            Mnemonic::Cmpsd => Ok(Instruction::Cmpsd),
-            Mnemonic::Cmpsq => Ok(Instruction::Cmpsq),
-            Mnemonic::Scasb => Ok(Instruction::Scasb),
-            Mnemonic::Scasw => Ok(Instruction::Scasw),
-            Mnemonic::Scasd => Ok(Instruction::Scasd),
-            Mnemonic::Scasq => Ok(Instruction::Scasq),
-            Mnemonic::Stosb => Ok(Instruction::Stosb),
-            Mnemonic::Stosw => Ok(Instruction::Stosw),
-            Mnemonic::Stosd => Ok(Instruction::Stosd),
-            Mnemonic::Stosq => Ok(Instruction::Stosq),
-            Mnemonic::Lodsb => Ok(Instruction::Lodsb),
-            Mnemonic::Lodsw => Ok(Instruction::Lodsw),
-            Mnemonic::Lodsd => Ok(Instruction::Lodsd),
-            Mnemonic::Lodsq => Ok(Instruction::Lodsq),
-            Mnemonic::Mfence => Ok(Instruction::Mfence),
-            Mnemonic::Lfence => Ok(Instruction::Lfence),
-            Mnemonic::Sfence => Ok(Instruction::Sfence),
-            Mnemonic::Syscall => Ok(Instruction::Syscall),
-            Mnemonic::Sysenter => Ok(Instruction::Sysenter),
-            Mnemonic::Sysexit => Ok(Instruction::Sysexit),
-            Mnemonic::Ret => Ok(Instruction::Ret),
-            Mnemonic::Nop => Ok(Instruction::Nop),
-            Mnemonic::Int3 => Ok(Instruction::Int3),
-            Mnemonic::Hlt => Ok(Instruction::Hlt),
-            Mnemonic::Cpuid => Ok(Instruction::CpuId),
-            Mnemonic::Rdtsc => Ok(Instruction::Rdtsc),
+            Mnemonic::Movsq => Ok(InstructionKind::Movsq),
+            Mnemonic::Cmpsb => Ok(InstructionKind::Cmpsb),
+            Mnemonic::Cmpsw => Ok(InstructionKind::Cmpsw),
+            Mnemonic::Cmpsd => Ok(InstructionKind::Cmpsd),
+            Mnemonic::Cmpsq => Ok(InstructionKind::Cmpsq),
+            Mnemonic::Scasb => Ok(InstructionKind::Scasb),
+            Mnemonic::Scasw => Ok(InstructionKind::Scasw),
+            Mnemonic::Scasd => Ok(InstructionKind::Scasd),
+            Mnemonic::Scasq => Ok(InstructionKind::Scasq),
+            Mnemonic::Stosb => Ok(InstructionKind::Stosb),
+            Mnemonic::Stosw => Ok(InstructionKind::Stosw),
+            Mnemonic::Stosd => Ok(InstructionKind::Stosd),
+            Mnemonic::Stosq => Ok(InstructionKind::Stosq),
+            Mnemonic::Lodsb => Ok(InstructionKind::Lodsb),
+            Mnemonic::Lodsw => Ok(InstructionKind::Lodsw),
+            Mnemonic::Lodsd => Ok(InstructionKind::Lodsd),
+            Mnemonic::Lodsq => Ok(InstructionKind::Lodsq),
+            Mnemonic::Mfence => Ok(InstructionKind::Mfence),
+            Mnemonic::Lfence => Ok(InstructionKind::Lfence),
+            Mnemonic::Sfence => Ok(InstructionKind::Sfence),
+            Mnemonic::Syscall => Ok(InstructionKind::Syscall),
+            Mnemonic::Sysenter => Ok(InstructionKind::Sysenter),
+            Mnemonic::Sysexit => Ok(InstructionKind::Sysexit),
+            Mnemonic::Ret => Ok(InstructionKind::Ret),
+            Mnemonic::Nop => Ok(InstructionKind::Nop),
+            Mnemonic::Int3 => Ok(InstructionKind::Int3),
+            Mnemonic::Hlt => Ok(InstructionKind::Hlt),
+            Mnemonic::Cpuid => Ok(InstructionKind::CpuId),
+            Mnemonic::Rdtsc => Ok(InstructionKind::Rdtsc),
             Mnemonic::Push => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Push(op))
+                Ok(InstructionKind::Push(op))
             }
             Mnemonic::Pop => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Pop(op))
+                Ok(InstructionKind::Pop(op))
             }
             Mnemonic::Mov => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Mov(dest, src))
+                Ok(InstructionKind::Mov(dest, src))
             }
             Mnemonic::Sub => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Sub(dest, src))
+                Ok(InstructionKind::Sub(dest, src))
             }
             Mnemonic::Add => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Add(dest, src))
+                Ok(InstructionKind::Add(dest, src))
             }
             Mnemonic::Xor => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Xor(dest, src))
+                Ok(InstructionKind::Xor(dest, src))
             }
             Mnemonic::And => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::And(dest, src))
+                Ok(InstructionKind::And(dest, src))
             }
             Mnemonic::Or => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Or(dest, src))
+                Ok(InstructionKind::Or(dest, src))
             }
             Mnemonic::Inc => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Inc(op))
+                Ok(InstructionKind::Inc(op))
             }
             Mnemonic::Dec => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Dec(op))
+                Ok(InstructionKind::Dec(op))
             }
             Mnemonic::Neg => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Neg(op))
+                Ok(InstructionKind::Neg(op))
             }
             Mnemonic::Not => {
                 let op = self.parse_operand()?;
-                Ok(Instruction::Not(op))
+                Ok(InstructionKind::Not(op))
             }
             Mnemonic::Cmp => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmp(dest, src))
+                Ok(InstructionKind::Cmp(dest, src))
             }
             Mnemonic::Test => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Test(dest, src))
+                Ok(InstructionKind::Test(dest, src))
             }
             Mnemonic::Lea => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Lea(dest, src))
+                Ok(InstructionKind::Lea(dest, src))
             }
             Mnemonic::Jmp => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jmp(target))
+                Ok(InstructionKind::Jmp(target))
             }
             Mnemonic::Je | Mnemonic::Jz => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::E, target))
+                Ok(InstructionKind::Jcc(ConditionCode::E, target))
             }
             Mnemonic::Jne | Mnemonic::Jnz => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::NE, target))
+                Ok(InstructionKind::Jcc(ConditionCode::NE, target))
             }
             Mnemonic::Jg => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::G, target))
+                Ok(InstructionKind::Jcc(ConditionCode::G, target))
             }
             Mnemonic::Jge => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::GE, target))
+                Ok(InstructionKind::Jcc(ConditionCode::GE, target))
             }
             Mnemonic::Jl => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::L, target))
+                Ok(InstructionKind::Jcc(ConditionCode::L, target))
             }
             Mnemonic::Jle => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::LE, target))
+                Ok(InstructionKind::Jcc(ConditionCode::LE, target))
             }
             Mnemonic::Ja => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::A, target))
+                Ok(InstructionKind::Jcc(ConditionCode::A, target))
             }
             Mnemonic::Jb => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Jcc(ConditionCode::B, target))
+                Ok(InstructionKind::Jcc(ConditionCode::B, target))
             }
             Mnemonic::Call => {
                 let target = self.parse_operand()?;
-                Ok(Instruction::Call(target))
+                Ok(InstructionKind::Call(target))
             }
             Mnemonic::Cmove | Mnemonic::Cmovz => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmove(dest, src))
+                Ok(InstructionKind::Cmove(dest, src))
             }
             Mnemonic::Cmovne | Mnemonic::Cmovnz => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovne(dest, src))
+                Ok(InstructionKind::Cmovne(dest, src))
             }
             Mnemonic::Cmovg => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovg(dest, src))
+                Ok(InstructionKind::Cmovg(dest, src))
             }
             Mnemonic::Cmovge => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovge(dest, src))
+                Ok(InstructionKind::Cmovge(dest, src))
             }
             Mnemonic::Cmovl => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovl(dest, src))
+                Ok(InstructionKind::Cmovl(dest, src))
             }
             Mnemonic::Cmovle => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovle(dest, src))
+                Ok(InstructionKind::Cmovle(dest, src))
             }
             Mnemonic::Cmova => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmova(dest, src))
+                Ok(InstructionKind::Cmova(dest, src))
             }
             Mnemonic::Cmovae => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovae(dest, src))
+                Ok(InstructionKind::Cmovae(dest, src))
             }
             Mnemonic::Cmovb => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovb(dest, src))
+                Ok(InstructionKind::Cmovb(dest, src))
             }
             Mnemonic::Cmovbe => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovbe(dest, src))
+                Ok(InstructionKind::Cmovbe(dest, src))
             }
             Mnemonic::Cmovs => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovs(dest, src))
+                Ok(InstructionKind::Cmovs(dest, src))
             }
             Mnemonic::Cmovns => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Cmovns(dest, src))
+                Ok(InstructionKind::Cmovns(dest, src))
             }
             Mnemonic::Movaps => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Movaps(dest, src))
+                Ok(InstructionKind::Movaps(dest, src))
             }
             Mnemonic::Movapd => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Movapd(dest, src))
+                Ok(InstructionKind::Movapd(dest, src))
             }
             Mnemonic::Addpd => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Addpd(dest, src))
+                Ok(InstructionKind::Addpd(dest, src))
             }
             Mnemonic::Addps => {
                 let dest = self.parse_operand()?;
                 self.expect_comma()?;
                 let src = self.parse_operand()?;
-                Ok(Instruction::Addps(dest, src))
+                Ok(InstructionKind::Addps(dest, src))
             }
             Mnemonic::Vaddpd => {
                 let dest = self.parse_operand()?;
@@ -583,7 +576,7 @@ impl<'a> Parser<'a> {
                 let src1 = self.parse_operand()?;
                 self.expect_comma()?;
                 let src2 = self.parse_operand()?;
-                Ok(Instruction::Vaddpd(dest, src1, src2))
+                Ok(InstructionKind::Vaddpd(dest, src1, src2))
             }
             Mnemonic::Vaddps => {
                 let dest = self.parse_operand()?;
@@ -591,31 +584,31 @@ impl<'a> Parser<'a> {
                 let src1 = self.parse_operand()?;
                 self.expect_comma()?;
                 let src2 = self.parse_operand()?;
-                Ok(Instruction::Vaddps(dest, src1, src2))
+                Ok(InstructionKind::Vaddps(dest, src1, src2))
             }
             Mnemonic::Prefetch => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetch(addr))
+                Ok(InstructionKind::Prefetch(addr))
             }
             Mnemonic::Prefetchnta => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetchnta(addr))
+                Ok(InstructionKind::Prefetchnta(addr))
             }
             Mnemonic::Prefetcht0 => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetcht0(addr))
+                Ok(InstructionKind::Prefetcht0(addr))
             }
             Mnemonic::Prefetcht1 => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetcht1(addr))
+                Ok(InstructionKind::Prefetcht1(addr))
             }
             Mnemonic::Prefetcht2 => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetcht2(addr))
+                Ok(InstructionKind::Prefetcht2(addr))
             }
             Mnemonic::Prefetchw => {
                 let addr = self.parse_operand()?;
-                Ok(Instruction::Prefetchw(addr))
+                Ok(InstructionKind::Prefetchw(addr))
             }
             _ => {
                 let loc = self.current_location();
@@ -631,7 +624,7 @@ impl<'a> Parser<'a> {
     fn parse_operand(&mut self) -> Result<Spanned<Operand>, ParserError> {
         let start_loc = self.current_location();
 
-        let size = match self.peek() {
+        let _size = match self.peek() {
             Some(token) if token.value == Token::Byte => {
                 self.advance();
                 Some(1)
